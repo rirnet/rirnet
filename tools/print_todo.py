@@ -1,6 +1,7 @@
 import os
+import bcolors
 
-folderpath = "."
+folderpath = "../code"
 word = '#TODO'
 dont_search_file = 'print_todo.py'
 dont_search_folder = './__pycache__'
@@ -22,12 +23,18 @@ for(path, dirs, files) in os.walk(folderpath, topdown=True):
                     line_count = 1
                     for line in currentfile:
                         if word in line:
-                            print(filename + ' at line: '
-                                    + str(line_count) + '\n' +
-                                    get_between(line, '#TODO'))
+                            print(
+                                    bcolors.CRED + bcolors.CBOLD +
+                                    filename +
+                                    bcolors.CEND +
+                                    ' at line: ' +
+                                    bcolors.CRED + bcolors.CBOLD +
+                                    str(line_count) + '\n' +
+                                    bcolors.CEND +
+                                    bcolors.CITALIC +
+                                    get_between(line, '#TODO') +
+                                    bcolors.CEND)
                             TODO_count += 1
                         line_count += 1
 
-print('Found ' + str(TODO_count) + ' TODO:s')
-
-
+print('Found ' + bcolors.BOLD + bcolors.CRED + str(TODO_count) + bcolors.CEND  + ' TODO:s')
