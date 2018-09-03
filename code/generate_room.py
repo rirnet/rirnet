@@ -15,6 +15,9 @@ def generate_floor(min_side, max_side):
     box1 = geo.box(0, 0, maxx1, maxy1)
     box2 = geo.box(minx2, miny2, maxx2, maxy2)
 
-    vertices = box1.union(box2).exterior.coords
+    if np.random.uniform() < .5:
+        vertices = box1.union(box2).exterior.coords
+    else:
+        vertices = box1.difference(box2).exterior.coords
 
     return vertices.xy[0][:-1], vertices.xy[1][:-1]
