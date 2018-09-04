@@ -4,7 +4,8 @@ import bcolors
 folderpath = "../code"
 word = '#TODO'
 dont_search_file = 'print_todo.py'
-dont_search_folder = './__pycache__'
+dont_search_folders = '../code/__pycache__' #'./__pycache__',
+
 
 def get_between(s, first):
     try:
@@ -15,7 +16,7 @@ def get_between(s, first):
 
 TODO_count = 0
 for(path, dirs, files) in os.walk(folderpath, topdown=True):
-    if(path != dont_search_folder):
+    if(path != dont_search_folders):
         for filename in files:
             if(filename != dont_search_file):
                 filepath = os.path.join(path, filename)
