@@ -1,3 +1,4 @@
 #gitignore
 tools/__pycache__
 code/__pycache__
+.idea
