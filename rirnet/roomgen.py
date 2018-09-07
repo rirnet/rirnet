@@ -4,6 +4,19 @@ import pyroomacoustics as pra
 import matplotlib.pyplot as plt
 
 
+def generate_from_dict(db_setup):
+    min_side = db_setup['min_side']
+    max_side = db_setup['max_side']
+    min_height = db_setup['min_height']
+    max_height = db_setup['max_height']
+    n_mics = db_setup['n_mics']
+    fs = db_setup['fs']
+    max_order = db_setup['max_order']
+    absorption = db_setup['absorption']
+    return generate(min_side, max_side, min_height, max_height, n_mics, fs,
+            max_order, absorption)
+
+
 def generate(min_side, max_side, min_height, max_height, n_mics, fs=16000,
         max_order=2, absorption=0.1):
     floor_shape = generate_floor_shape(min_side, max_side)
