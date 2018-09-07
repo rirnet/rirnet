@@ -1,5 +1,6 @@
 #gitignore
 tools/__pycache__
-code/__pycache__
-rirnet/tests/drums_convolved.wav
+rirnet/__pycache__
+rirnet/tests/*.wav
 .idea
+
