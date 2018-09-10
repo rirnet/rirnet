@@ -2,11 +2,12 @@ min_side: 10
 max_side: 25
 min_height: 2
 max_height: 4
-n_mics: 1
+n_mics: 10
 fs: 44100
 max_order: 6
 absorption: 0.5
 n_mfcc: 40
 n_fft: 2048
 hop_length: 512
-source_audio: '../audio/sample.wav'
+source_audio: '/sample.wav'
+n_rooms: 10
