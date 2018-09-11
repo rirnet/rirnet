@@ -1,11 +1,16 @@
 #!/bin/bash
 
-a=`date +%m%d`
-mkdir ../models/$a
-mkdir ../models/$a/$1
-cp net_master.py ../models/$a/$1/net.py
-# vim ../models/$a/$1/net.py
-cp run.sh ../models/$a/$1/run.sh
+if [ $# -eq 1 ]
+    then
+        mkdir ../models/$1
+        cp template_net.py ../models/$1/net.py
+        cp run.sh ../models/$1/run.sh
 
-cd ../models/$a/$1
+        cd ../models/$1
 
+        echo 'Created new directory'
+        pwd
+        echo 'Caution! You are now in that folder!'
+    else
+        echo 'No arguments given! Provide model name'
+fi

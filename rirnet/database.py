@@ -23,16 +23,23 @@ def build_db(root):
     db_setup['fs'] = rate
     n_rooms = db_setup['n_rooms']
 
+
+    #TODO make sure that conv(x,h) always have the same length and is of power 2
+    #TODO make sure h is of power 2 (fulfilled)
+    #TODO calculate a reasonable waveform_length from the longest h obtained IN TOTAL!!!
     with open(os.path.join(root, 'db.csv'), 'w') as csvfile:
-        writer = csv.writer(csvfile, delimiter='\t')
+        writer = csv.writer(csvfile, delimiter=',')
         writer.writerow(header)
         for i_room in range(n_rooms):
             room = rg.generate_from_dict(db_setup)
             room.compute_rir()
             for i_rir, rir in enumerate(room.rir):
-                y = au.convolve(x, rir[0])
+                h = rir[0]
+                waveform_length = au.next_power_of_two(rate) #corresponds to 1s h
+                h = np.pad(h, (0, waveform_length-np.size(h)), 'edge')
+                y = au.convolve(x, h)
                 mfcc_y = au.waveform_to_mfcc(y, rate, n_mfcc)
-                mfcc_h = au.waveform_to_mfcc(rir[0], rate, n_mfcc)
+                mfcc_h = au.waveform_to_mfcc(h, rate, n_mfcc)
                 name_d = 'room%04d_pos%04d_data.npy' % (i_room, i_rir)
                 name_t = 'room%04d_pos%04d_target.npy' % (i_room, i_rir)
                 path_d = os.path.join(root, name_d)

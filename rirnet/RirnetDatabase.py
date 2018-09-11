@@ -6,7 +6,7 @@ import pandas as pd
 from torch.utils.data import Dataset
 import numpy as np
 
-class FrontRearDataset(Dataset):
+class RirnetDatabase(Dataset):
     """ Data-Target dataset to use with rirnet"""
 
     def __init__(self, csv_file, root_dir, transform=None):
@@ -32,5 +32,4 @@ class FrontRearDataset(Dataset):
         if self.transform:
             data = self.transform(data)
             target = self.transform(target)
-
         return data, target

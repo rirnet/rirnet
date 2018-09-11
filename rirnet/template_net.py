@@ -2,7 +2,7 @@ import argparse
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import transforms
-from Transforms import ToLab, ToTensor
+#from Transforms import ToLab, ToTensor
 
 # -------------  Network class  ------------- #
 class Net(nn.Module):
@@ -61,36 +61,39 @@ class Net(nn.Module):
         return x
 
 
-# -------------  Training settings  ------------- #
-def args():
-    parser = argparse.ArgumentParser(description='PyTorch tigernet')
-    parser.add_argument('--batch-size', type=int, default=10, metavar='N',
-            help='input batch size for training (default: 64)')
-    parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
-            help='input batch size for testing (default: 1000)')
-    parser.add_argument('--epochs', type=int, default=500, metavar='N',
-            help='number of epochs to train (default: 10)')
-    parser.add_argument('--lr', type=float, default=0.1, metavar='LR',
-            help='learning rate (default: 0.005)')
-    parser.add_argument('--momentum', type=float, default=0.1, metavar='M',
-            help='SGD momentum (default: 0.5)')
-    parser.add_argument('--no-cuda', action='store_true', default=False,
-            help='disables CUDA training')
-    parser.add_argument('--seed', type=int, default=1, metavar='S',
-            help='random seed (default: 1)')
-    parser.add_argument('--log-interval', type=int, default=1, metavar='N',
-            help='how many batches to wait before logging training status')
-    parser.add_argument('--save-interval', type=int, default=10, metavar='N',
-            help='how many batches to wait before saving network')
-    parser.add_argument('--plot', type=bool, default=True, metavar='N',
-            help='show plot while training (turn off if using ssh)')
-    args = parser.parse_args()
-    return args
+        # -------------  Training settings  ------------- #
+    def args(self):
+        parser = argparse.ArgumentParser(description='PyTorch tigernet')
+        parser.add_argument('--batch-size', type=int, default=10, metavar='N',
+                help='input batch size for training (default: 64)')
+        parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
+                help='input batch size for testing (default: 1000)')
+        parser.add_argument('--epochs', type=int, default=500, metavar='N',
+                help='number of epochs to train (default: 10)')
+        parser.add_argument('--lr', type=float, default=0.1, metavar='LR',
+                help='learning rate (default: 0.005)')
+        parser.add_argument('--momentum', type=float, default=0.1, metavar='M',
+                help='SGD momentum (default: 0.5)')
+        parser.add_argument('--no-cuda', action='store_true', default=False,
+                help='disables CUDA training')
+        parser.add_argument('--seed', type=int, default=1, metavar='S',
+                help='random seed (default: 1)')
+        parser.add_argument('--log-interval', type=int, default=1, metavar='N',
+                help='how many batches to wait before logging training status')
+        parser.add_argument('--save-interval', type=int, default=10,
+                help='how many batches to wait before saving network')
+        parser.add_argument('--plot', type=bool, default=True,
+                help='show plot while training (turn off if using ssh)')
+        parser.add_argument('--db_path', type=str, default='FIXME',
+                help='path to folder that contains database csv')
+        args, unknown = parser.parse_known_args()
+        return args
 
-def transform():
-    data_transform = transforms.Compose([
-        ToLab(),
-        #ToNormalized(),
-        ToTensor(),
-        ])
-    return data_transform
+    def transform(self):
+        pass
+        #    data_transform = transforms.Compose([
+#        ToLab(),
+#        ToNormalized(),
+#        ToTensor(),
+#        ])
+#       return data_transform
