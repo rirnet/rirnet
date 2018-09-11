@@ -4,3 +4,4 @@ rirnet/__pycache__
 rirnet/tests/*.wav
 .idea
 audio/
+database/*/
