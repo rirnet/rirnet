@@ -51,6 +51,7 @@ def parse_yaml(filename):
 if __name__ == "__main__":
     try:
         build_db(sys.argv[1])
-    except:
-        print('No argument given. State path to preferred database folder')
-
+    except FileNotFoundError:
+        print('FileNotFoundError! Did you set the database structure up correctly? (See help-file in database folder)')
+    except IndexError:
+        print('IndexError! This script takes an input; the path to the preferred database')
