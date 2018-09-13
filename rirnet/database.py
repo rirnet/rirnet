@@ -25,8 +25,9 @@ def build_db(root):
 
 
     #TODO make sure that conv(x,h) always have the same length and is of power 2
-    #TODO make sure h is of power 2 (fulfilled)
+    #TODO make sure h is of power 2
     #TODO calculate a reasonable waveform_length from the longest h obtained IN TOTAL!!!
+    #TODO in general; STANDARDIZE THESE SIZES!
     with open(os.path.join(root, 'db.csv'), 'w') as csvfile:
         writer = csv.writer(csvfile, delimiter=',')
         writer.writerow(header)
@@ -38,6 +39,7 @@ def build_db(root):
                 waveform_length = au.next_power_of_two(rate) #corresponds to 1s h
                 h = np.pad(h, (0, waveform_length-np.size(h)), 'edge')
                 y = au.convolve(x, h)
+                h = np.pad(h, (0, np.size(y) - np.size(h)), 'edge')
                 mfcc_y = au.waveform_to_mfcc(y, rate, n_mfcc)
                 mfcc_h = au.waveform_to_mfcc(h, rate, n_mfcc)
                 name_d = 'room%04d_pos%04d_data.npy' % (i_room, i_rir)

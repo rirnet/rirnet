@@ -5,3 +5,4 @@ rirnet/tests/*.wav
 .idea
 audio/
 database/*/
+models/
