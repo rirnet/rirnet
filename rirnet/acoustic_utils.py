@@ -36,8 +36,16 @@ def next_power_of_two(x):
     return 1 if x == 0 else 2**(x-1).bit_length()
 
 
+def pad_to(x, length):
+    return np.pad(x, (0, length - np.size(x)), 'edge')
+
+
 def normalize(x):
     return x / np.max(np.abs(x))
+
+
+def resample(waveform, rate, target_rate):
+    return librosa.core.resample(waveform, rate, target_rate)
 
 
 def play_file(path):
@@ -48,6 +56,6 @@ def save_wav(path, data, rate):
     librosa.output.write_wav(path, data, rate)
 
 
-def read_wav(path):
-    data, rate = librosa.load(path, sr=None)
+def read_wav(path, rate=None):
+    data, rate = librosa.load(path, sr=rate)
     return data, rate
