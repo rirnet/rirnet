@@ -8,6 +8,7 @@ import sys
 import csv
 import os
 import pickle
+import matplotlib.pyplot as plt
 
 filename_db_setup = 'db_setup.yaml'
 audio_path_rel = '../../audio'
@@ -29,6 +30,7 @@ def build_db(root):
     for i_room in range(n_rooms):
         room = rg.generate_from_dict(db_setup)
         room.compute_rir()
+        print('Generating rooms: ' + str(np.round(i_room/n_rooms*100, 3)) +'%')
         for pos, rir in enumerate(room.rir):
             h_list.append(rir[0])
             info.append([room.corners, room.absorption, room.mic_array.R, room.sources[0].position])
@@ -36,7 +38,7 @@ def build_db(root):
 
     longest_irf = au.next_power_of_two(len(max(h_list, key=len)))
     h_list = [au.pad_to(h, longest_irf) for h in h_list]
-    
+
     with open(os.path.join(root, 'db.csv'), 'w') as csvfile:
         writer = csv.writer(csvfile, delimiter=',')
         writer.writerow(header)
@@ -44,9 +46,16 @@ def build_db(root):
             y = au.convolve(x, h)
             y_length = au.next_power_of_two(np.size(y))
             y = au.pad_to(y, y_length)
+            print('Convolving: ' + str(np.round(i_h/len(h_list)*100, 3)) +'%')
+            #au.save_wav('hej.wav', y, rate)
+            #au.play_file('hej.wav')
             h = au.pad_to(h, y_length)
-            mfcc_y = au.waveform_to_mfcc(y, rate, n_mfcc)
-            mfcc_h = au.waveform_to_mfcc(h, rate, n_mfcc)
+            mfcc_y = np.log(au.waveform_to_mfcc(y, rate, n_mfcc) + 2**14)
+            mfcc_h = np.log(au.waveform_to_mfcc(h, rate, n_mfcc) + 2**14)
+            #plt.plot(mfcc_y)
+            #plt.show()
+            #plt.plot(mfcc_h)
+            #plt.show()
             name_d = 'room%04d_pos%04d_data.npy' % (room_pos_number[i_h][0], room_pos_number[i_h][1])
             name_t = 'room%04d_pos%04d_target.npy' % (room_pos_number[i_h][0], room_pos_number[i_h][1])
             path_d = os.path.join(root, name_d)
