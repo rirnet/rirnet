@@ -7,12 +7,11 @@ import yaml
 import sys
 import csv
 import os
-import pickle
-import matplotlib.pyplot as plt
 
 filename_db_setup = 'db_setup.yaml'
 audio_path_rel = '../../audio'
 header=['path_data', 'path_target', 'room_corners', 'room_absorption', 'room_mics', 'room_source']
+
 
 def build_db(root):
     root = os.path.abspath(root)
@@ -22,7 +21,6 @@ def build_db(root):
     source_audio = db_setup['source_audio']
     n_mfcc = db_setup['n_mfcc']
     rate = db_setup['fs']
-    x, rate = au.read_wav(os.path.join(root, audio_path_rel, source_audio), rate)
 
     h_list = []
     info = []
@@ -30,7 +28,7 @@ def build_db(root):
     for i_room in range(n_rooms):
         room = rg.generate_from_dict(db_setup)
         room.compute_rir()
-        print('Generating rooms: ' + str(np.round(i_room/n_rooms*100, 3)) +'%')
+        print('Generating rooms: ' + str(np.round(i_room/n_rooms*100, 3)) + '%')
         for pos, rir in enumerate(room.rir):
             h_list.append(rir[0])
             info.append([room.corners, room.absorption, room.mic_array.R, room.sources[0].position])
@@ -42,27 +40,26 @@ def build_db(root):
     with open(os.path.join(root, 'db.csv'), 'w') as csvfile:
         writer = csv.writer(csvfile, delimiter=',')
         writer.writerow(header)
-        for i_h, h in enumerate(h_list):
-            y = au.convolve(x, h)
-            y_length = au.next_power_of_two(np.size(y))
-            y = au.pad_to(y, y_length)
-            print('Convolving: ' + str(np.round(i_h/len(h_list)*100, 3)) +'%')
-            #au.save_wav('hej.wav', y, rate)
-            #au.play_file('hej.wav')
-            h = au.pad_to(h, y_length)
-            mfcc_y = np.log(au.waveform_to_mfcc(y, rate, n_mfcc) + 2**14)
-            mfcc_h = np.log(au.waveform_to_mfcc(h, rate, n_mfcc) + 2**14)
-            #plt.plot(mfcc_y)
-            #plt.show()
-            #plt.plot(mfcc_h)
-            #plt.show()
-            name_d = 'room%04d_pos%04d_data.npy' % (room_pos_number[i_h][0], room_pos_number[i_h][1])
-            name_t = 'room%04d_pos%04d_target.npy' % (room_pos_number[i_h][0], room_pos_number[i_h][1])
-            path_d = os.path.join(root, name_d)
-            path_t = os.path.join(root, name_t)
-            np.save(path_d, mfcc_y)
-            np.save(path_t, mfcc_h)
-            writer.writerow([path_d, path_t, info[i_h]])
+        for i_audio, audio_path in enumerate(source_audio):
+            x, _ = au.read_wav(os.path.join(root, audio_path_rel, audio_path), rate)
+
+            for i_h, h in enumerate(h_list):
+                y = au.convolve(x, h)
+                y_length = au.next_power_of_two(np.size(y))
+                y = au.pad_to(y, y_length)
+                print('Convolving: ' + str(np.round(i_h/len(h_list)*100, 3)) + '%')
+                h = au.pad_to(h, y_length)
+                mfcc_y = np.log(au.waveform_to_mfcc(y, rate, n_mfcc) + 2**14)
+                mfcc_h = np.log(au.waveform_to_mfcc(h, rate, n_mfcc) + 2**14)
+                name_d = 'room{:04d}_pos{:04d}_audio{:02d}_data.npy'.format(room_pos_number[i_h][0],
+                                                                            room_pos_number[i_h][1], i_audio)
+                name_t = 'room{:04d}_pos{:04d}_audio{:02d}_target.npy'.format(room_pos_number[i_h][0],
+                                                                              room_pos_number[i_h][1], i_audio)
+                path_d = os.path.join(root, name_d)
+                path_t = os.path.join(root, name_t)
+                np.save(path_d, mfcc_y)
+                np.save(path_t, mfcc_h)
+                writer.writerow([path_d, path_t, info[i_h]])
 
 
 def parse_yaml(filename):

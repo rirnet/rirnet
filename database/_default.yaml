@@ -9,5 +9,5 @@ absorption: 0.5
 n_mfcc: 40
 n_fft: 2048
 hop_length: 512
-source_audio: 'sample.wav'
+source_audio: ['sample.wav', 'sample.wav']
 n_rooms: 10
