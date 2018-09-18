@@ -31,7 +31,8 @@ def build_db(root):
     for i_room in range(n_rooms):
         room = rg.generate_from_dict(db_setup)
         room.compute_rir()
-        print('Generating rooms: ' + str(np.round(i_room/n_rooms*100, 3)) + '%')
+        counter = i_room/n_rooms*100
+        print('Generating Rooms: {:4.1f}%'.format(counter))
         for pos, rir in enumerate(room.rir):
             h_list.append(rir[0])
             info.append([room.corners, room.absorption, room.mic_array.R, room.sources[0].position])
@@ -49,7 +50,9 @@ def build_db(root):
             y = au.convolve(x, h)
             y_length = au.next_power_of_two(np.size(y))
             y = au.pad_to(y, y_length)
-            print('Convolving: ' + str(np.round(i_h/len(h_list)*100, 3)) + '%')
+
+            counter = (i_audio*len(h_list)+i_h)/(len(h_list)*len(source_audio))*100
+            print('Convolving: {:4.1f}%'.format(counter))
             h = au.pad_to(h, y_length)
             mfcc_y = au.waveform_to_mfcc(y, rate, n_mfcc)
             mfcc_h = au.waveform_to_mfcc(h, rate, n_mfcc)
@@ -58,7 +61,7 @@ def build_db(root):
 
     mfcc_y_mean = np.mean(mfcc_y_list, axis=(0,2))
     mfcc_y_std = np.std(mfcc_y_list, axis=(0,2))
-    
+
     mfcc_h_mean = np.mean(mfcc_h_list, axis=(0,2))
     mfcc_h_std = np.std(mfcc_h_list, axis=(0,2))
     mfcc_y_list = (mfcc_y_list - mfcc_y_mean[:,None])/mfcc_y_std[:,None]
