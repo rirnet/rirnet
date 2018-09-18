@@ -9,7 +9,7 @@ import numpy as np
 class RirnetDatabase(Dataset):
     """ Data-Target dataset to use with rirnet"""
 
-    def __init__(self, csv_file, root_dir, transform=None):
+    def __init__(self, is_training, args, transform=None):
         """
         Args:
             csv_file (string): Path to the csv file with data-target pairs.
@@ -17,16 +17,29 @@ class RirnetDatabase(Dataset):
             transform (callable, optional): Optional transform to be applied
                 on a sample.
         """
-        self.database_csv = pd.read_csv(csv_file)
-        self.root_dir = root_dir
-        self.transform = transform
+        csv_file = os.path.join(args.db_path, 'db.csv')
+        database = pd.read_csv(csv_file)
+        n_total = len(database)
+        indices = np.arange(n_total)
+        np.random.seed(1)
+        np.random.shuffle(indices)
 
+        if is_training:
+            positions = np.arange(int(np.floor(n_total * args.db_ratio)))
+        else:
+            positions = np.arange(int(np.ceil(n_total * args.db_ratio)), n_total)
+
+        indices = indices[positions]
+        self.dataset = database.iloc[indices, :]
+        self.root_dir = args.db_path
+        self.transform = transform
+        print(indices)
     def __len__(self):
-        return len(self.database_csv)
+        return len(self.dataset)
 
     def __getitem__(self, idx):
-        data_path = os.path.join(self.root_dir, self.database_csv.iloc[idx, 0])
-        target_path = os.path.join(self.root_dir, self.database_csv.iloc[idx, 1])
+        data_path = os.path.join(self.root_dir, self.dataset.iloc[idx, 0])
+        target_path = os.path.join(self.root_dir, self.dataset.iloc[idx, 1])
         data = np.load(data_path)
         target = np.load(target_path)
         if self.transform:

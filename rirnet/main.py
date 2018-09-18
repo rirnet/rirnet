@@ -14,7 +14,6 @@ import numpy as np
 from importlib import import_module
 from glob import glob
 
-#TODO this code needs love, 'plt_loss_vector' and similar needs better names.
 #TODO constants should be added to self.args in net_master.py
 
 # -------------  Initialization  ------------- #
@@ -43,11 +42,16 @@ class Model:
         self.epoch = epoch
         self.csv_path = os.path.join(self.args.db_path, 'db.csv')
         data_transform = self.model.transform()
-        train_db = RirnetDatabase(csv_file=self.csv_path, root_dir=self.args.db_path, transform=data_transform)
+
+
+        train_db = RirnetDatabase(is_training = True, args = self.args, transform = data_transform)
+        eval_db = RirnetDatabase(is_training = False, args = self.args, transform = data_transform)
+
+        #validate_db = RirnetDatabase(training = False, csv_file=self.csv_path, root_dir=self.args.db_path, transform=data_transform)
+
+
         self.train_loader = torch.utils.data.DataLoader(train_db, batch_size=self.args.batch_size, shuffle=True, **self.kwargs)
-        #self.test_loader = torch.utils.data.DataLoader(TigernetDataset(
-        #    csv_file='../../code/train.csv', root_dir='../../dataset', transform=data_transform),
-        #    batch_size=self.args.batch_size, shuffle=True, **self.kwargs)
+        self.eval_loader = torch.utils.data.DataLoader(eval_db, batch_size=self.args.batch_size, shuffle=True, **self.kwargs)
         self.optimizer = optim.SGD(self.model.parameters(), lr=self.args.lr, momentum=self.args.momentum)
 
 
@@ -59,23 +63,24 @@ class Model:
             #source = source.cuda(args.gpu, non_blocking=True)
             self.optimizer.zero_grad()
             output = self.model(source)
-            self.loss = F.mse_loss(output, target)
-            self.loss.backward()
+            self.train_loss = F.l1_loss(output, target)
+            self.train_loss.backward()
             self.optimizer.step()
             if batch_idx % self.args.log_interval == 0:
                 print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLoss: {:.6f}'.format(
                     self.epoch + 1, batch_idx * len(source), len(self.train_loader.dataset),
-                    100. * batch_idx / len(self.train_loader), self.loss.item()))
+                    100. * batch_idx / len(self.train_loader), self.train_loss.item()))
 
-    def test(self):
+    def evaluate(self):
         self.model.eval()
-        test_loss = 0
+        eval_loss = []
         correct = 0
         with torch.no_grad():
-            for batch_idx, (source, target) in enumerate(self.test_loader):
+            for batch_idx, (source, target) in enumerate(self.eval_loader):
                 source, target = source.to(self.device), target.to(self.device)
                 output = self.model(source)
-                # test_loss += F.mse_loss(output, target)
+                eval_loss.append(F.l1_loss(output, target).item())
+
                 # correct += output.eq(target.data).sum().item()
                 # test_loss /= len(test_loader.dataset)
                 # print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
@@ -84,7 +89,7 @@ class Model:
                 # print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
                 #    test_loss, correct, len(test_loader.dataset),
                 #    100. * correct / len(test_loader.dataset)))
-
+            self.mean_eval_loss = np.mean(eval_loss)
 
     def save_model(self):
         full_path = os.path.join(self.model_dir, '{}.pth'.format(str(self.epoch)))
@@ -94,18 +99,16 @@ class Model:
     def loss_to_file(self):
         with open('loss_over_epochs.csv', 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
-            if self.args.save_timestamps:
-                writer.writerow([self.epoch, self.loss.item(), datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
-            else:
-                writer.writerow([self.epoch, self.loss.item()])
+            writer.writerow([self.epoch, self.train_loss.item(), self.mean_eval_loss, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
 
     def generate_plot(self):
         frmt = "%Y-%m-%d %H:%M:%S"
         plot_data = pd.read_csv('loss_over_epochs.csv', header=None)
-        epochs_raw, losses_raw, times_raw = plot_data.values[:,0], plot_data.values[:,1], plot_data.values[:,2]
+        epochs_raw, train_losses_raw, eval_losses_raw, times_raw = plot_data.values.T
 
-        epochs = [int(epoch) for epoch in list(plot_data.values[:, 0]) if is_number(epoch)]
-        losses = [float(loss) for loss in list(plot_data.values[:, 1]) if is_number(loss)]
+        epochs = [int(epoch) for epoch in list(epochs_raw) if is_number(epoch)]
+        train_losses = [float(loss) for loss in list(train_losses_raw) if is_number(loss)]
+        eval_losses = [float(loss) for loss in list(eval_losses_raw) if is_number(loss)]
 
         if self.args.save_timestamps:
             total_time = timedelta(0, 0, 0)
@@ -118,7 +121,9 @@ class Model:
                 plt.title('Trained for {} hours and {:2d} minutes'.format(int(total_time.days/24 + total_time.seconds//3600), (total_time.seconds//60)%60))
         plt.xlabel('Epochs')
         plt.ylabel('Loss (MSE)')
-        plt.semilogy(epochs, losses)
+        plt.semilogy(epochs, train_losses, label='Training Loss')
+        plt.semilogy(epochs, eval_losses, label='Evaluation Loss')
+        plt.legend()
         plt.savefig('loss_over_epochs.png')
         plt.close()
 
@@ -126,12 +131,12 @@ class Model:
     def stop_session(self):
         with open('loss_over_epochs.csv', 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
-            writer.writerow(['stopped', 'stopped', datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+            writer.writerow(['stopped', 'stopped', 'stopped', datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
 
     def start_session(self):
         with open('loss_over_epochs.csv', 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
-            writer.writerow(['started', 'started', datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+            writer.writerow(['started', 'started', 'started', datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
 
 def main(model_dir):
     model = Model(model_dir)
@@ -139,6 +144,7 @@ def main(model_dir):
     try:
         for epoch in range(model.epoch, model.args.epochs + 1):
             model.train()
+            model.evaluate()
             model.epoch = epoch+1
             model.loss_to_file()
             model.generate_plot()
