@@ -61,7 +61,7 @@ def generate_rooms(db_setup):
             info.append([room.corners, room.absorption, room.mic_array.R, 
                          room.sources[0].position])
 
-    h_list = fix_lengths(h_list)
+    h_list = pad_list_to_pow2(h_list)
     return h_list, info
 
 
@@ -89,7 +89,7 @@ def generate_mfccs(audio_path, h_list, db_setup):
     return mfcc_y_list, mfcc_h_list
 
 
-def fix_lengths(h_list):
+def pad_list_to_pow2(h_list):
     longest_irf = len(max(h_list, key=len))
     target_length = au.next_power_of_two(longest_irf)
     h_list = [au.pad_to(h, target_length) for h in h_list]
