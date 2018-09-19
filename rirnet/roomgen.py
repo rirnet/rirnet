@@ -5,23 +5,21 @@ import matplotlib.pyplot as plt
 
 
 def generate_from_dict(db_setup):
-    min_side = db_setup['min_side']
-    max_side = db_setup['max_side']
-    min_height = db_setup['min_height']
-    max_height = db_setup['max_height']
+    min_side, max_side = db_setup['side']
+    min_height, max_height = db_setup['height']
     n_mics = db_setup['n_mics']
     fs = db_setup['fs']
     max_order = db_setup['max_order']
-    absorption = db_setup['absorption']
+    min_abs, max_abs = db_setup['absorption']
     return generate(min_side, max_side, min_height, max_height, n_mics, fs,
-            max_order, absorption)
+            max_order, min_abs, max_abs)
 
 
 def generate(min_side, max_side, min_height, max_height, n_mics, fs=16000,
-        max_order=2, absorption=0.1):
+        max_order=2, min_abs=0.1, max_abs=0.9):
     floor_shape = generate_floor_shape(min_side, max_side)
     height = np.random.uniform(min_height, max_height)
-
+    absorption = np.random.uniform(min_abs, max_abs)
     vertices = floor_shape.exterior.coords
     x_coords = vertices.xy[0][:-1]
     y_coords = vertices.xy[1][:-1]
