@@ -21,7 +21,7 @@ class RirnetDatabase(Dataset):
         database = pd.read_csv(csv_file)
         n_total = len(database)
         indices = np.arange(n_total)
-        np.random.seed(1)
+        np.random.seed(args.seed)
         np.random.shuffle(indices)
 
         if is_training:
@@ -33,8 +33,11 @@ class RirnetDatabase(Dataset):
         self.dataset = database.iloc[indices, :]
         self.root_dir = args.db_path
         self.transform = transform
+    
+    
     def __len__(self):
         return len(self.dataset)
+
 
     def __getitem__(self, idx):
         data_path = os.path.join(self.root_dir, self.dataset.iloc[idx, 0])
