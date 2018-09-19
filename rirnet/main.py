@@ -14,6 +14,7 @@ import numpy as np
 from importlib import import_module
 from glob import glob
 
+
 #TODO constants should be added to self.args in net_master.py
 
 # -------------  Initialization  ------------- #
@@ -38,7 +39,6 @@ class Model:
             epoch = max([int(e.split('.')[0]) for e in list_epochs])
             self.model.load_state_dict(torch.load(os.path.join(model_dir, '{}.pth'.format(str(epoch)))))
 
-
         self.epoch = epoch
         self.csv_path = os.path.join(self.args.db_path, 'db.csv')
         data_transform = self.model.transform()
@@ -55,16 +55,16 @@ class Model:
         self.model.train()
         for batch_idx, (source, target) in enumerate(self.train_loader):
             source, target = source.to(self.device), target.to(self.device)
-            #source = source.cuda(args.gpu, non_blocking=True)
             self.optimizer.zero_grad()
             output = self.model(source)
-            self.train_loss = F.l1_loss(output, target)
+            self.train_loss = getattr(F, self.args.loss_function)(output, target)
             self.train_loss.backward()
             self.optimizer.step()
             if batch_idx % self.args.log_interval == 0:
                 print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLoss: {:.6f}'.format(
                     self.epoch + 1, batch_idx * len(source), len(self.train_loader.dataset),
                     100. * batch_idx / len(self.train_loader), self.train_loss.item()))
+
 
     def evaluate(self):
         self.model.eval()
@@ -74,7 +74,8 @@ class Model:
             for batch_idx, (source, target) in enumerate(self.eval_loader):
                 source, target = source.to(self.device), target.to(self.device)
                 output = self.model(source)
-                eval_loss.append(F.l1_loss(output, target).item())
+                loss = getattr(F, self.args.loss_function)(output, target).item()
+                eval_loss.append(loss)
 
                 # correct += output.eq(target.data).sum().item()
                 # test_loss /= len(test_loader.dataset)
@@ -86,6 +87,7 @@ class Model:
                 #    100. * correct / len(test_loader.dataset)))
             self.mean_eval_loss = np.mean(eval_loss)
 
+
     def save_model(self):
         full_path = os.path.join(self.model_dir, '{}.pth'.format(str(self.epoch)))
         torch.save(self.model.state_dict(), full_path)
@@ -95,6 +97,7 @@ class Model:
         with open('loss_over_epochs.csv', 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
             writer.writerow([self.epoch, self.train_loss.item(), self.mean_eval_loss, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+
 
     def generate_plot(self):
         frmt = "%Y-%m-%d %H:%M:%S"
@@ -115,7 +118,7 @@ class Model:
                 total_time += datetime.now() - datetime.strptime(start_times[-1], frmt)
                 plt.title('Trained for {} hours and {:2d} minutes'.format(int(total_time.days/24 + total_time.seconds//3600), (total_time.seconds//60)%60))
         plt.xlabel('Epochs')
-        plt.ylabel('Loss (MSE)')
+        plt.ylabel('Loss ({})'.format(self.args.loss_function))
         plt.semilogy(epochs, train_losses, label='Training Loss')
         plt.semilogy(epochs, eval_losses, label='Evaluation Loss')
         plt.legend()
@@ -128,10 +131,12 @@ class Model:
             writer = csv.writer(csvfile, delimiter=',')
             writer.writerow(['stopped', 'stopped', 'stopped', datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
 
+
     def start_session(self):
         with open('loss_over_epochs.csv', 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
             writer.writerow(['started', 'started', 'started', datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+
 
 def main(model_dir):
     model = Model(model_dir)

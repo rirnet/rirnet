@@ -80,6 +80,8 @@ class Net(nn.Module):
                             help='disables CUDA training')
         parser.add_argument('--seed', type=int, default=1, metavar='S',
                             help='random seed (default: 1)')
+        parser.add_argument('--loss_function', type=str, default='mse_loss',
+                            help='the loss function to use. Must be EXACTLY as the function is called in pytorch docs')
         parser.add_argument('--log-interval', type=int, default=1, metavar='N', 
                             help='how many batches to wait before logging training status')
         parser.add_argument('--save-interval', type=int, default=10, 
