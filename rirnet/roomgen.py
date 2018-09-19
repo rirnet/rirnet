@@ -28,7 +28,7 @@ def generate(min_side, max_side, min_height, max_height, n_mics, fs=16000,
 
     room = pra.Room.from_corners([x_coords, y_coords], fs=fs,
             max_order=max_order, absorption=absorption)
-    room.extrude(height)
+    room.extrude(height, absorption=absorption)
 
     mic_pos = find_valid_pos(floor_shape, height, n_mics)
     source_pos = find_valid_pos(floor_shape, height, n_pos=1)
