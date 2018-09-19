@@ -1,6 +1,6 @@
 from __future__ import print_function
 import sys
-from RirnetDatabase import RirnetDatabase
+from rirnet_database import RirnetDatabase
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
