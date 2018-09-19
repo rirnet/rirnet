@@ -49,6 +49,12 @@ class Model:
         self.train_loader = torch.utils.data.DataLoader(train_db, batch_size=self.args.batch_size, shuffle=True, **self.kwargs)
         self.eval_loader = torch.utils.data.DataLoader(eval_db, batch_size=self.args.batch_size, shuffle=True, **self.kwargs)
         self.optimizer = optim.SGD(self.model.parameters(), lr=self.args.lr, momentum=self.args.momentum)
+        
+        try:
+            getattr(F, self.args.loss_function)
+        except AttributeError:
+            print('AttributeError! {} is not a valid loss function. The string must exactly match a pytorch loss function'.format(self.args.loss_function))
+            sys.exit()
 
 
     def train(self):
