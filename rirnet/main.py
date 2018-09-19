@@ -43,17 +43,12 @@ class Model:
         self.csv_path = os.path.join(self.args.db_path, 'db.csv')
         data_transform = self.model.transform()
 
-
         train_db = RirnetDatabase(is_training = True, args = self.args, transform = data_transform)
         eval_db = RirnetDatabase(is_training = False, args = self.args, transform = data_transform)
-
-        #validate_db = RirnetDatabase(training = False, csv_file=self.csv_path, root_dir=self.args.db_path, transform=data_transform)
-
 
         self.train_loader = torch.utils.data.DataLoader(train_db, batch_size=self.args.batch_size, shuffle=True, **self.kwargs)
         self.eval_loader = torch.utils.data.DataLoader(eval_db, batch_size=self.args.batch_size, shuffle=True, **self.kwargs)
         self.optimizer = optim.SGD(self.model.parameters(), lr=self.args.lr, momentum=self.args.momentum)
-
 
 
     def train(self):
@@ -156,7 +151,6 @@ def main(model_dir):
         model.save_model()
         #model.loss_to_file()
         #model.generate_plot()
-
 
 
 def is_number(s):
