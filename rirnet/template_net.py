@@ -35,6 +35,7 @@ class Net(nn.Module):
         self.pool4 = nn.MaxPool2d(2, 2)
         self.map = nn.Linear(2340, 2340)
 
+
     def forward(self, x):
         x = F.relu(self.bn1(self.conv1(x)))
         x = F.relu(self.bn2(self.conv2(x)))
@@ -88,6 +89,7 @@ class Net(nn.Module):
                 help='path to folder that contains database csv')
         args, unknown = parser.parse_known_args()
         return args
+
 
     def transform(self):
         pass
