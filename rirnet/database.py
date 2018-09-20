@@ -37,7 +37,6 @@ def generate_waveforms(audio_path_folder, h_list, db_setup):
     target_list = []
     audio_list = db_setup['source_audio']
     rate = db_setup['fs']
-    #n_mfcc = db_setup['n_mfcc']
 
     for i_audio, audio_path in enumerate(audio_list):
         try:
@@ -71,12 +70,6 @@ def pad_list_to_pow2(h_list):
     target_length = au.next_power_of_two(longest_irf)
     h_list = [au.pad_to(h, target_length) for h in h_list]
     return h_list
-
-
-def normalize(lists):
-    mean = np.mean(lists, axis=(0,2))
-    std = column_std(lists, axis=(0,2))
-    return (lists - mean[:,None])/std[:,None]
 
 
 def repeat_list(x,n):
