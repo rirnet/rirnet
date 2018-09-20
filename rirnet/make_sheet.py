@@ -8,7 +8,7 @@ import pandas as pd
 from torch.autograd import Variable
 from importlib import import_module
 from glob import glob
-from rirnet import rirnet_database
+from rirnet.rirnet_database import RirnetDatabase
 
 def summary(input_size, model):
         def register_hook(module):
@@ -87,7 +87,7 @@ def compile_pdf(model_dir):
 
 def get_training_data_shape(model, args):
     data_transform = model.transform()
-    db = rirnet_database(is_training = True, args = args, transform = data_transform)
+    db = RirnetDatabase(is_training = True, args = args, transform = data_transform)
     (a, _) = db.__getitem__(0)
     return np.shape(a)
 
@@ -107,7 +107,7 @@ def main(model_dir):
     input_size = get_training_data_shape(model, args)
 
     use_cuda = not args.no_cuda and torch.cuda.is_available()
-    device = torch.device("cuda" if use_cuda else "cpu")
+    device = torch.device("cpu")
     model.to(device)
     kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
 

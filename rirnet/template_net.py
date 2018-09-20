@@ -2,10 +2,12 @@ import argparse
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import transforms
-#from Transforms import ToLab, ToTensor
+from rirnet.transforms import ToTensor
 
 # -------------  Network class  ------------- #
 class Net(nn.Module):
+
+        # -------------  Model Layers  ------------- #
     def __init__(self):
         super(Net, self).__init__()
         self.conv1 = nn.Conv2d(1, 5, 9, padding=5)
@@ -36,8 +38,9 @@ class Net(nn.Module):
         self.map = nn.Linear(80, 80)
 
 
+        # -------------  Forward Pass  ------------- #
     def forward(self, x):
-        x = x.unsqueeze(1).float()
+        x = x.unsqueeze(1)
         x = F.relu(self.bn1(self.conv1(x)))
         x = F.relu(self.bn2(self.conv2(x)))
         x = self.pool1(x)
@@ -60,7 +63,7 @@ class Net(nn.Module):
         x = F.relu((self.ct4(x)))
         x = F.relu(self.bn8(self.conv8(x)))
         x = F.relu((self.conv9(x)))
-        return x.squeeze().double()
+        return x.squeeze()
 
 
         # -------------  Training settings  ------------- #
@@ -68,7 +71,7 @@ class Net(nn.Module):
         parser = argparse.ArgumentParser(description='PyTorch rirnet')
         parser.add_argument('--batch-size', type=int, default=10, metavar='N',
                             help='input batch size for training (default: 64)')
-        parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N', 
+        parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
                             help='input batch size for testing (default: 1000)')
         parser.add_argument('--epochs', type=int, default=500, metavar='N',
                             help='number of epochs to train (default: 10)')
@@ -82,15 +85,15 @@ class Net(nn.Module):
                             help='random seed (default: 1)')
         parser.add_argument('--loss_function', type=str, default='mse_loss',
                             help='the loss function to use. Must be EXACTLY as the function is called in pytorch docs')
-        parser.add_argument('--log-interval', type=int, default=1, metavar='N', 
+        parser.add_argument('--log-interval', type=int, default=1, metavar='N',
                             help='how many batches to wait before logging training status')
-        parser.add_argument('--save-interval', type=int, default=10, 
+        parser.add_argument('--save-interval', type=int, default=10,
                             help='how many batches to wait before saving network')
-        parser.add_argument('--plot', type=bool, default=True, 
+        parser.add_argument('--plot', type=bool, default=True,
                             help='show plot while training (turn off if using ssh)')
-        parser.add_argument('--db_path', type=str, default='FIXME', 
+        parser.add_argument('--db_path', type=str, default='FIXME',
                             help='path to folder that contains database csv')
-        parser.add_argument('--db_ratio', type=float, default=0.9, 
+        parser.add_argument('--db_ratio', type=float, default=0.9,
                             help='ratio of the db to use for training')
         parser.add_argument('--save_timestamps', type=bool, default=True,
                             help='enables saving of timestamps to csv')
@@ -98,11 +101,7 @@ class Net(nn.Module):
         return args
 
 
+        # -------------  Transform settings  ------------- #
     def transform(self):
-        pass
-        #    data_transform = transforms.Compose([
-#        ToLab(),
-#        ToNormalized(),
-#        ToTensor(),
-#        ])
-#       return data_transform
+        data_transform = transforms.Compose([ToTensor()])
+        return data_transform

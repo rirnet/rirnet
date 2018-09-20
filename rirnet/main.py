@@ -13,6 +13,7 @@ import time
 import numpy as np
 from importlib import import_module
 from glob import glob
+import signal
 
 
 #TODO constants should be added to self.args in net_master.py
@@ -49,7 +50,7 @@ class Model:
         self.train_loader = torch.utils.data.DataLoader(train_db, batch_size=self.args.batch_size, shuffle=True, **self.kwargs)
         self.eval_loader = torch.utils.data.DataLoader(eval_db, batch_size=self.args.batch_size, shuffle=True, **self.kwargs)
         self.optimizer = optim.SGD(self.model.parameters(), lr=self.args.lr, momentum=self.args.momentum)
-        
+
         try:
             getattr(F, self.args.loss_function)
         except AttributeError:
@@ -145,23 +146,33 @@ class Model:
 
 
 def main(model_dir):
+
+    global interrupted
+    interrupted = False
+    signal.signal(signal.SIGINT, signal_handler)
+
     model = Model(model_dir)
     model.start_session()
-    try:
-        for epoch in range(model.epoch, model.args.epochs + 1):
-            model.train()
-            model.evaluate()
-            model.epoch = epoch+1
-            model.loss_to_file()
-            model.generate_plot()
-            if epoch % model.args.save_interval == 0:
-                model.save_model()
-    except KeyboardInterrupt:
-        print(' '+'-'*64, '\nEarly stopping\n', '-'*64)
-        model.stop_session()
-        model.save_model()
-        #model.loss_to_file()
-        #model.generate_plot()
+
+    for epoch in range(model.epoch, model.args.epochs + 1):
+        model.train()
+        model.evaluate()
+        model.epoch = epoch+1
+        model.loss_to_file()
+        model.generate_plot()
+        if epoch % model.args.save_interval == 0:
+            model.save_model()
+
+        if interrupted:
+            print(' '+'-'*64, '\nEarly stopping\n', '-'*64)
+            model.stop_session()
+            model.save_model()
+            break
+
+
+def signal_handler(signal, frame):
+    global interrupted
+    interrupted = True
 
 
 def is_number(s):
