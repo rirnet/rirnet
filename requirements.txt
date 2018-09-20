@@ -1,2 +1,8 @@
 numpy
+scipy
 pytorch
+librosa
+matplotlib
+pandas
+pyroomacoustics
+
