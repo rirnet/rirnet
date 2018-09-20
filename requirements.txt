@@ -1,6 +1,7 @@
 numpy
 scipy
-pytorch
+torchvision
+torch
 librosa
 matplotlib
 pandas
