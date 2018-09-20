@@ -9,3 +9,4 @@ n_fft: 2048
 hop_length: 512
 source_audio: ['sample.wav', 'sample.wav']
 n_rooms: 10
+data_format: 'mfcc'
