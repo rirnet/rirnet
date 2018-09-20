@@ -6,4 +6,3 @@ librosa
 matplotlib
 pandas
 pyroomacoustics
-pytorch/pytorch
