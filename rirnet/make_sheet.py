@@ -8,7 +8,7 @@ import pandas as pd
 from torch.autograd import Variable
 from importlib import import_module
 from glob import glob
-from rirnet.rirnet_database import rirnet_database
+from rirnet import rirnet_database
 
 def summary(input_size, model):
         def register_hook(module):
