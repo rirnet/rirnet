@@ -1,6 +1,7 @@
+n_samples: 100
+n_mics: 10
 side: [10, 25]
 height: [2, 4]
-n_mics: 10
 fs: 44100
 max_order: 6
 absorption: [0.1, 0.9]
@@ -8,5 +9,4 @@ n_mfcc: 40
 n_fft: 2048
 hop_length: 512
 source_audio: ['sample.wav', 'sample.wav']
-n_rooms: 10
 data_format: 'mfcc'
