@@ -14,6 +14,7 @@ import numpy as np
 from importlib import import_module
 from glob import glob
 import signal
+import rirnet.acoustic_utils as au
 
 
 #TODO constants should be added to self.args in net_master.py
@@ -60,6 +61,7 @@ class Model:
 
     def train(self):
         self.model.train()
+        self.loss_list = []
         for batch_idx, (source, target) in enumerate(self.train_loader):
             source, target = source.to(self.device), target.to(self.device)
             self.optimizer.zero_grad()
@@ -67,22 +69,29 @@ class Model:
             self.train_loss = getattr(F, self.args.loss_function)(output, target)
             self.train_loss.backward()
             self.optimizer.step()
+            self.loss_list.append(self.train_loss.item())
             if batch_idx % self.args.log_interval == 0:
                 print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLoss: {:.6f}'.format(
                     self.epoch + 1, batch_idx * len(source), len(self.train_loader.dataset),
                     100. * batch_idx / len(self.train_loader), self.train_loss.item()))
+        self.train_loss = sum(self.loss_list) / float(len(self.loss_list))
 
 
     def evaluate(self):
         self.model.eval()
-        eval_loss = []
+        eval_loss_list = []
         correct = 0
         with torch.no_grad():
             for batch_idx, (source, target) in enumerate(self.eval_loader):
+                #plt.subplot(2,1,1)
+                #plt.imshow(source.cpu().detach().numpy()[0])
+                #plt.subplot(2,1,2)
+                #plt.imshow(target.cpu().detach().numpy()[0])
+                #plt.show()
                 source, target = source.to(self.device), target.to(self.device)
                 output = self.model(source)
                 loss = getattr(F, self.args.loss_function)(output, target).item()
-                eval_loss.append(loss)
+                eval_loss_list.append(loss)
 
                 # correct += output.eq(target.data).sum().item()
                 # test_loss /= len(test_loader.dataset)
@@ -92,7 +101,7 @@ class Model:
                 # print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
                 #    test_loss, correct, len(test_loader.dataset),
                 #    100. * correct / len(test_loader.dataset)))
-            self.mean_eval_loss = np.mean(eval_loss)
+            self.mean_eval_loss = np.mean(eval_loss_list)
 
 
     def save_model(self):
@@ -103,7 +112,7 @@ class Model:
     def loss_to_file(self):
         with open('loss_over_epochs.csv', 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
-            writer.writerow([self.epoch, self.train_loss.item(), self.mean_eval_loss, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+            writer.writerow([self.epoch, self.train_loss, self.mean_eval_loss, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
 
 
     def generate_plot(self):
@@ -131,7 +140,6 @@ class Model:
         plt.legend()
         plt.savefig('loss_over_epochs.png')
         plt.close()
-
 
     def stop_session(self):
         with open('loss_over_epochs.csv', 'a') as csvfile:
