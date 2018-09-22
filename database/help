@@ -5,6 +5,6 @@
     python *PATH-TO-database.py* *PATH-TO-NEW-FOLDER*
     e.g. (if standing in the database-folder, and naming the new database
     db1) 
-    python ../database.py db1
+    python ../rirnet/database.py db1
 
     the database will now build based on the configuration in db_setup.yaml
