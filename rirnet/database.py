@@ -9,13 +9,14 @@ import csv
 import os
 import random
 import pandas as pd
-import matplotlib.pyplot as plt
 
-filename_db_setup = 'db_setup.yaml'
-audio_path_rel = '../../audio'
+db_setup_filename = 'db_setup.yaml'
+db_mean_filename = 'mean.npy'
+db_std_filename = 'std.npy'
+db_csv_filename = 'db.csv'
+audio_rel_path = '../../audio'
 data_folder = 'data'
-header=['path_data', 'path_target', 'mean_target', 'std_target',
-        'room_corners', 'room_absorption', 'room_mics', 'room_source']
+header=['data_path', 'target_path', 'room_corners', 'room_absorption', 'room_mics', 'room_source', 'mean_path', 'std_path']
 
 
 class RirGenerator:
@@ -72,12 +73,12 @@ def generate_waveforms(wav, h_list, db_setup):
     return np.array(target_list), np.array(data_list)
 
 
-def load_wavs(audio_path_folder, db_setup):
+def load_wavs(audio_folder, db_setup):
     audio_list = db_setup['source_audio']
     rate = db_setup['fs']
     wav_list = []
-    for audio_path in audio_list:
-        wav_path = os.path.join(audio_path_folder, audio_path)
+    for audio_filename in audio_list:
+        wav_path = os.path.join(audio_folder, audio_filename)
         wav, _ = au.read_wav(wav_path, rate)
         wav_list.append(wav)
     return wav_list
@@ -106,29 +107,30 @@ def parse_yaml(filename):
     return db_setup
 
 
-def normalize(csv_path, data_mean, target_mean):
-    df = pd.read_csv(csv_path)
+def normalize_dataset(db_csv_path, data_mean, target_mean):
+    df = pd.read_csv(db_csv_path)
     n_rows = df.shape[0]
+    data_std = np.std(data_mean, axis=0)
+    target_std = np.std(target_mean, axis=0)
     for i in range(n_rows):
         data_path = df.iloc[i, 0]
         target_path = df.iloc[i, 1]
         data = np.load(data_path)
-        data_std = np.std(data_mean, axis=0)
         data = np.nan_to_num((data-data_mean)/data_std)
         target = np.load(target_path)
-        target_std = np.std(target_mean, axis=0)
         target = np.nan_to_num((target-target_mean)/target_std)
-
-        plt.subplot(2,1,2)
         np.save(data_path, data)
         np.save(target_path, target)
 
 
 def build_db(root):
     root = os.path.abspath(root)
-    path_db_setup = os.path.join(root, filename_db_setup)
-    db_setup = parse_yaml(path_db_setup)
-    audio_path = os.path.join(root, audio_path_rel)
+    db_mean_path = os.path.join(root, db_mean_filename)
+    db_std_path = os.path.join(root, db_std_filename)
+    db_csv_path = os.path.join(root, db_csv_filename)
+    db_setup_path = os.path.join(root, db_setup_filename)
+    db_setup = parse_yaml(db_setup_path)
+    audio_path = os.path.join(root, audio_rel_path)
     data_folder_path = os.path.join(root, data_folder)
     if not os.path.exists(data_folder_path):
         os.mkdir(data_folder_path)
@@ -136,14 +138,12 @@ def build_db(root):
     wav_list = load_wavs(audio_path, db_setup)
 
     rir_generator = RirGenerator(db_setup)
-    with open(os.path.join(root, 'db.csv'), 'w') as csvfile:
+    with open(db_csv_path, 'w') as csvfile:
         writer = csv.writer(csvfile, delimiter=',')
         writer.writerow(header)
 
-    target_mean = np.array([]) #np.zeros([40,129])
-    target_var = np.array([]) #np.zeros([40,129])
-    data_mean = np.array([]) #np.zeros([40, 129])
-    data_var = np.array([]) #np.zeros([40, 129])
+    db_target_mean = np.array([])
+    db_data_mean = np.array([])
 
     while rir_generator.i_total < rir_generator.n_total:
         for h_list, info_list in rir_generator:
@@ -164,24 +164,19 @@ def build_db(root):
 
             target_list = waveforms_to_mfccs(target_list, db_setup)
 
-            if np.size(target_mean) == 0:
-                target_mean = np.empty_like(target_list[0])
-            if np.size(data_mean) == 0:
-                data_mean = np.empty_like(data_list[0])
+            if np.size(db_target_mean) == 0:
+                db_target_mean = np.empty_like(target_list[0])
+            if np.size(db_data_mean) == 0:
+                db_data_mean = np.empty_like(data_list[0])
 
             n = db_setup['n_samples']
-            n_batch = len(target_list)
-            target_mean += np.sum(target_list, axis=0)/n
-            data_mean += np.sum(data_list, axis=0)/n
-
-            #not used, std is calculated in normalize() using means calculated here
-            #target_var += np.var(target_list, axis=0)*n_batch*(n_batch-1)/(n*(n-1))
-            #data_var += np.var(data_list, axis=0)*n_batch*(n_batch-1)/(n*(n-1))
+            db_target_mean += np.sum(target_list, axis=0)/n
+            db_data_mean += np.sum(data_list, axis=0)/n
 
             info_list = repeat_list(info_list, len(db_setup['source_audio']))
 
 
-            with open(os.path.join(root, 'db.csv'), 'a') as csvfile:
+            with open(db_csv_path, 'a') as csvfile:
                 writer = csv.writer(csvfile, delimiter=',')
                 n_saved = rir_generator.i_total - len(data_list)
                 for i, data in enumerate(data_list):
@@ -190,17 +185,19 @@ def build_db(root):
                     except:
                         print(np.shape(data), np.shape(target))
                     corners, absorption, mics, sources = info_list[i]
-                    name_data = '{}_d.npy'.format(n_saved + i)
-                    name_target = '{}_t.npy'.format(n_saved + i)
-                    path_data = os.path.join(data_folder_path, name_data)
-                    path_target = os.path.join(data_folder_path, name_target)
-                    np.save(path_data, data)
-                    np.save(path_target, target)
-                    writer.writerow([path_data, path_target, target_mean, np.sqrt(target_var), corners,
-                                        absorption, mics, sources])
-    print('\nBirth Complet')
-    print('It\'s {}'.format(random.choice(['a Boy! Yay!', '... a Grill :('])))
-    normalize(os.path.join(root, 'db.csv'), data_mean, target_mean)
+                    data_filename = '{}_d.npy'.format(n_saved + i)
+                    target_filename = '{}_t.npy'.format(n_saved + i)
+                    data_path = os.path.join(data_folder_path, data_filename)
+                    target_path = os.path.join(data_folder_path, target_filename)
+                    np.save(data_path, data)
+                    np.save(target_path, target)
+                    writer.writerow([data_path, target_path, corners,
+                                        absorption, mics, sources, db_mean_path, db_std_path])
+    print('\ndatabase generated, normalizing')
+    normalize_dataset(db_csv_path, db_data_mean, db_target_mean)
+    np.save(db_mean_path, db_target_mean)
+    np.save(db_std_path, np.std(db_target_mean, axis=0))
+    print('Done')
 
 if __name__ == "__main__":
     try:
