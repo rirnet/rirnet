@@ -34,11 +34,15 @@ class Model:
         self.kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
 
         list_epochs = glob('*.pth')
+        list_epochs = [ x for x in list_epochs if "_" not in x ]
+        self.optimizer = optim.SGD(self.model.parameters(), lr=self.args.lr, momentum=self.args.momentum)
         if list_epochs == []:
             epoch = 0
         else:
             epoch = max([int(e.split('.')[0]) for e in list_epochs])
+            self.optimizer.load_state_dict(torch.load(os.path.join(model_dir, 'o_{}.pth'.format(str(epoch)))))
             self.model.load_state_dict(torch.load(os.path.join(model_dir, '{}.pth'.format(str(epoch)))))
+            self.model.cuda()
 
         self.epoch = epoch
         self.csv_path = os.path.join(self.args.db_path, 'db.csv')
@@ -46,10 +50,8 @@ class Model:
 
         train_db = RirnetDatabase(is_training = True, args = self.args, transform = data_transform)
         eval_db = RirnetDatabase(is_training = False, args = self.args, transform = data_transform)
-
         self.train_loader = torch.utils.data.DataLoader(train_db, batch_size=self.args.batch_size, shuffle=True, **self.kwargs)
         self.eval_loader = torch.utils.data.DataLoader(eval_db, batch_size=self.args.batch_size, shuffle=True, **self.kwargs)
-        self.optimizer = optim.SGD(self.model.parameters(), lr=self.args.lr, momentum=self.args.momentum)
 
         try:
             getattr(F, self.args.loss_function)
@@ -60,50 +62,48 @@ class Model:
 
     def train(self):
         self.model.train()
+        loss_list = []
         for batch_idx, (source, target) in enumerate(self.train_loader):
+            torch.cuda.empty_cache()
             source, target = source.to(self.device), target.to(self.device)
-            self.optimizer.zero_grad()
             output = self.model(source)
-            self.train_loss = getattr(F, self.args.loss_function)(output, target)
-            self.train_loss.backward()
+            self.optimizer.zero_grad()
+            train_loss = getattr(F, self.args.loss_function)(output, target)
+
+            train_loss.backward()
             self.optimizer.step()
+            loss_list.append(train_loss.item())
             if batch_idx % self.args.log_interval == 0:
                 print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLoss: {:.6f}'.format(
                     self.epoch + 1, batch_idx * len(source), len(self.train_loader.dataset),
-                    100. * batch_idx / len(self.train_loader), self.train_loss.item()))
+                    100. * batch_idx / len(self.train_loader), train_loss.item()))
+        self.mean_train_loss = np.mean(loss_list)
 
 
     def evaluate(self):
         self.model.eval()
-        eval_loss = []
-        correct = 0
+        eval_loss_list = []
         with torch.no_grad():
             for batch_idx, (source, target) in enumerate(self.eval_loader):
                 source, target = source.to(self.device), target.to(self.device)
                 output = self.model(source)
-                loss = getattr(F, self.args.loss_function)(output, target).item()
-                eval_loss.append(loss)
-
-                # correct += output.eq(target.data).sum().item()
-                # test_loss /= len(test_loader.dataset)
-                # print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
-                #    test_loss, test_loss, len(test_loader.dataset),
-                #    100. * test_loss / len(test_loader.dataset)))
-                # print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
-                #    test_loss, correct, len(test_loader.dataset),
-                #    100. * correct / len(test_loader.dataset)))
-            self.mean_eval_loss = np.mean(eval_loss)
+                eval_loss = getattr(F, self.args.loss_function)(output, target).item()
+                eval_loss_list.append(eval_loss)
+            self.mean_eval_loss = np.mean(eval_loss_list)
 
 
     def save_model(self):
-        full_path = os.path.join(self.model_dir, '{}.pth'.format(str(self.epoch)))
-        torch.save(self.model.state_dict(), full_path)
+        print(' '+'-'*64, '\nSaving\n', '-'*64)
+        model_full_path = os.path.join(self.model_dir, '{}.pth'.format(str(self.epoch)))
+        optimizer_full_path = os.path.join(self.model_dir, 'o_{}.pth'.format(str(self.epoch)))
+        torch.save(self.model.state_dict(), model_full_path)
+        torch.save(self.optimizer.state_dict(), optimizer_full_path)
 
 
     def loss_to_file(self):
         with open('loss_over_epochs.csv', 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
-            writer.writerow([self.epoch, self.train_loss.item(), self.mean_eval_loss, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+            writer.writerow([self.epoch, self.mean_train_loss, self.mean_eval_loss, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
 
 
     def generate_plot(self):
@@ -131,7 +131,6 @@ class Model:
         plt.legend()
         plt.savefig('loss_over_epochs.png')
         plt.close()
-
 
     def stop_session(self):
         with open('loss_over_epochs.csv', 'a') as csvfile:
@@ -171,6 +170,7 @@ def main(model_dir):
 
 
 def signal_handler(signal, frame):
+    print(' '+'-'*64, '\nTraining will stop after this epoch\n', '-'*64)
     global interrupted
     interrupted = True
 

@@ -37,7 +37,7 @@ def next_power_of_two(x):
 
 
 def pad_to(x, length):
-    return np.pad(x, (0, length - np.size(x)), 'edge')
+    return np.pad(x, (0, length - np.size(x)), 'constant')
 
 
 def normalize(x):
