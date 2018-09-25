@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import multiprocessing as mp
 import rirnet.roomgen as rg
 import rirnet.acoustic_utils as au
 import numpy as np
@@ -18,6 +19,11 @@ audio_rel_path = '../../audio'
 data_folder = 'data'
 header=['data_path', 'target_path', 'room_corners', 'room_absorption', 'room_mics', 'room_source', 'mean_path', 'std_path']
 
+
+def threaded_compute_rir(room, output):
+    room.compute_rir()
+    output.put(room)
+    
 
 class RirGenerator:
     def __init__(self, db_setup):
@@ -39,7 +45,14 @@ class RirGenerator:
         h_list = []
         info_list = []
         room = rg.generate_from_dict(self.db_setup)
-        room.compute_rir()
+        output = mp.Queue()
+        p = mp.Process(target=threaded_compute_rir, args=(room, output))
+        p.start()
+        room = output.get()
+        p.join()
+        p.terminate()
+
+        
         for i_rir, rir in enumerate(room.rir):
             rir_length = len(rir[0])
             if not self.h_length:
@@ -165,16 +178,13 @@ def build_db(root):
             target_list = waveforms_to_mfccs(target_list, db_setup)
 
             if np.size(db_target_mean) == 0:
-                db_target_mean = np.empty_like(target_list[0])
+                db_target_mean = np.zeros_like(target_list[0])
             if np.size(db_data_mean) == 0:
-                db_data_mean = np.empty_like(data_list[0])
+                db_data_mean = np.zeros_like(data_list[0])
 
             n = db_setup['n_samples']
             db_target_mean += np.sum(target_list, axis=0)/n
             db_data_mean += np.sum(data_list, axis=0)/n
-
-            info_list = repeat_list(info_list, len(db_setup['source_audio']))
-
 
             with open(db_csv_path, 'a') as csvfile:
                 writer = csv.writer(csvfile, delimiter=',')
