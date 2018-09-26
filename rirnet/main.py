@@ -16,8 +16,6 @@ from glob import glob
 import signal
 
 
-#TODO constants should be added to self.args in net_master.py
-
 # -------------  Initialization  ------------- #
 class Model:
     def __init__(self, model_dir):
@@ -43,7 +41,9 @@ class Model:
             self.optimizer.load_state_dict(torch.load(os.path.join(model_dir, 'o_{}.pth'.format(str(epoch)))))
             self.model.load_state_dict(torch.load(os.path.join(model_dir, '{}.pth'.format(str(epoch)))))
             self.model.cuda()
-
+            for g in self.optimizer.param_groups:
+                g['lr'] = self.args.lr
+                g['momentum'] = self.args.momentum
         self.epoch = epoch
         self.csv_path = os.path.join(self.args.db_path, 'db.csv')
         data_transform = self.model.transform()
@@ -89,6 +89,24 @@ class Model:
                 output = self.model(source)
                 eval_loss = getattr(F, self.args.loss_function)(output, target).item()
                 eval_loss_list.append(eval_loss)
+            plt.subplot(2,2,1)
+            plt.plot(output.cpu().detach().numpy()[0][0:5])
+            plt.title('Output')
+
+            plt.subplot(2,2,2)
+            plt.plot(target.cpu().detach().numpy()[0][0:5])
+            plt.title('Target')
+
+            plt.subplot(2,2,3)
+            plt.imshow(output.cpu().detach().numpy()[0][1:])
+            plt.title('Output')
+
+            plt.subplot(2,2,4)
+            plt.imshow(target.cpu().detach().numpy()[0][1:])
+            plt.title('Target')
+
+            plt.savefig('example_output.png')
+            plt.close()
             self.mean_eval_loss = np.mean(eval_loss_list)
 
 

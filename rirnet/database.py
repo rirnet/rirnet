@@ -17,13 +17,8 @@ db_std_filename = 'std.npy'
 db_csv_filename = 'db.csv'
 audio_rel_path = '../../audio'
 data_folder = 'data'
-header=['data_path', 'target_path', 'room_corners', 'room_absorption', 'room_mics', 'room_source', 'mean_path', 'std_path']
+header=['data_path', 'target_path', 'room_corners', 'room_absorption', 'room_mics', 'room_source']
 
-
-def threaded_compute_rir(room, output):
-    room.compute_rir()
-    output.put(room)
-    
 
 class RirGenerator:
     def __init__(self, db_setup):
@@ -32,6 +27,22 @@ class RirGenerator:
         self.db_setup = db_setup
         self.h_length = None
         self.discarded = 0
+        self.output = mp.Queue()
+        self.processes = [mp.Process(target=self.compute_room_proc) for x in range(12)]
+        for p in self.processes:
+            p.start()
+
+
+    def kill_dead_proc(self):
+        while self.processes and not self.processes[0].is_alive():
+            p = self.processes.pop(0)
+            p.kill()
+
+
+    def compute_room_proc(self):
+        room = rg.generate_from_dict(self.db_setup)
+        room.compute_rir()
+        self.output.put(room)
 
 
     def __iter__(self):
@@ -41,27 +52,27 @@ class RirGenerator:
     def __next__(self):
         if self.i_total == self.n_total:
             raise StopIteration
+
         i_produced = 0
         h_list = []
         info_list = []
-        room = rg.generate_from_dict(self.db_setup)
-        output = mp.Queue()
-        p = mp.Process(target=threaded_compute_rir, args=(room, output))
-        p.start()
-        room = output.get()
-        p.join()
-        p.terminate()
+        self.kill_dead_proc()
+        room = self.output.get()
+        self.processes.append(mp.Process(target=self.compute_room_proc))
+        new_proc = self.processes[-1]
+        new_proc.start()
 
-        
         for i_rir, rir in enumerate(room.rir):
-            rir_length = len(rir[0])
+            rir[0] = rir[0]/max(np.abs(rir[0]))
+            cut_rir = remove_leading_zeros(list(rir[0]))
+            rir_length = len(cut_rir)
             if not self.h_length:
                 self.h_length = au.next_power_of_two(rir_length)
             if rir_length > self.h_length:
                 self.discarded += 1
                 return self.__next__()
             else:
-                rir = au.pad_to(rir[0], self.h_length)
+                rir = au.pad_to(cut_rir, self.h_length)
                 h_list.append(rir)
                 info_list.append([room.corners, room.absorption, room.mic_array.R[:, i_rir],
                                 room.sources[0].position])
@@ -70,6 +81,12 @@ class RirGenerator:
                     break
         self.i_total += i_produced
         return h_list, info_list
+
+
+def remove_leading_zeros(rir):
+    ind_1st_nonzero = next((i for i, x in enumerate(rir) if x), None)
+    rir[0:ind_1st_nonzero] = []
+    return np.array(rir)
 
 
 def generate_waveforms(wav, h_list, db_setup):
@@ -110,30 +127,31 @@ def pad_list_to_pow2(h_list):
     return h_list
 
 
-def repeat_list(x,n):
-    return x*n
-
-
 def parse_yaml(filename):
     with open(filename, 'r') as stream:
         db_setup = yaml.load(stream)
     return db_setup
 
 
-def normalize_dataset(db_csv_path, data_mean, target_mean):
+def normalize_dataset(db_csv_path, mean):
     df = pd.read_csv(db_csv_path)
     n_rows = df.shape[0]
-    data_std = np.std(data_mean, axis=0)
-    target_std = np.std(target_mean, axis=0)
+    std_sum = np.zeros_like(mean)
+
     for i in range(n_rows):
-        data_path = df.iloc[i, 0]
-        target_path = df.iloc[i, 1]
-        data = np.load(data_path)
-        data = np.nan_to_num((data-data_mean)/data_std)
-        target = np.load(target_path)
-        target = np.nan_to_num((target-target_mean)/target_std)
-        np.save(data_path, data)
-        np.save(target_path, target)
+        path = df.iloc[i, 0]
+        data = np.load(path)
+        std_sum += (data-mean)**2
+
+    std = np.sqrt(std_sum/(n_rows-1))
+
+    np.seterr(invalid='ignore')
+    for i in range(n_rows):
+        path = df.iloc[i, 0]
+        data = np.load(path)
+        data = (data-mean)/std
+        data = np.nan_to_num(data)
+        np.save(path, data)
 
 
 def build_db(root):
@@ -155,7 +173,6 @@ def build_db(root):
         writer = csv.writer(csvfile, delimiter=',')
         writer.writerow(header)
 
-    db_target_mean = np.array([])
     db_data_mean = np.array([])
 
     while rir_generator.i_total < rir_generator.n_total:
@@ -177,13 +194,12 @@ def build_db(root):
 
             target_list = waveforms_to_mfccs(target_list, db_setup)
 
-            if np.size(db_target_mean) == 0:
-                db_target_mean = np.zeros_like(target_list[0])
             if np.size(db_data_mean) == 0:
                 db_data_mean = np.zeros_like(data_list[0])
+                print('Started building db with data of size {}'.format(np.shape(db_data_mean)))
+            print('Progress: {:5.01f}%, Discarded {} times.'.format(counter, rir_generator.discarded), end="\r")
 
             n = db_setup['n_samples']
-            db_target_mean += np.sum(target_list, axis=0)/n
             db_data_mean += np.sum(data_list, axis=0)/n
 
             with open(db_csv_path, 'a') as csvfile:
@@ -201,12 +217,10 @@ def build_db(root):
                     target_path = os.path.join(data_folder_path, target_filename)
                     np.save(data_path, data)
                     np.save(target_path, target)
-                    writer.writerow([data_path, target_path, corners,
-                                        absorption, mics, sources, db_mean_path, db_std_path])
-    print('\ndatabase generated, normalizing')
-    normalize_dataset(db_csv_path, db_data_mean, db_target_mean)
-    np.save(db_mean_path, db_target_mean)
-    np.save(db_std_path, np.std(db_target_mean, axis=0))
+                    writer.writerow([data_path, target_path, corners, absorption, mics, sources])
+    print('\nDatabase generated, Normalizing...')
+    normalize_dataset(db_csv_path, db_data_mean)
+
     print('Done')
 
 if __name__ == "__main__":
