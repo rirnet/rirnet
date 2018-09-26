@@ -20,8 +20,6 @@ data_folder = 'data'
 header=['data_path', 'target_path', 'room_corners', 'room_absorption', 'room_mics', 'room_source']
 
 
-
-
 class RirGenerator:
     def __init__(self, db_setup):
         self.i_total = 0
@@ -58,7 +56,6 @@ class RirGenerator:
         i_produced = 0
         h_list = []
         info_list = []
-
         self.kill_dead_proc()
         room = self.output.get()
         self.processes.append(mp.Process(target=self.compute_room_proc))
@@ -72,7 +69,6 @@ class RirGenerator:
             if not self.h_length:
                 self.h_length = au.next_power_of_two(rir_length)
             if rir_length > self.h_length:
-                print('\nDiscarded')
                 self.discarded += 1
                 return self.__next__()
             else:
@@ -82,8 +78,6 @@ class RirGenerator:
                                 room.sources[0].position])
                 i_produced += 1
                 if self.i_total + i_produced == self.n_total:
-                    for p in self.processes:
-                        p.terminate()
                     break
         self.i_total += i_produced
         return h_list, info_list
@@ -184,6 +178,8 @@ def build_db(root):
     while rir_generator.i_total < rir_generator.n_total:
         for h_list, info_list in rir_generator:
             counter = rir_generator.i_total/rir_generator.n_total*100
+            print('Progress: {:5.01f}%, Discarded {} times.'.format(counter, rir_generator.discarded), end="\r")
+
             wav = random.choice(wav_list)
             target_list, data_list = generate_waveforms(wav, h_list, db_setup)
 
@@ -203,7 +199,6 @@ def build_db(root):
                 print('Started building db with data of size {}'.format(np.shape(db_data_mean)))
             print('Progress: {:5.01f}%, Discarded {} times.'.format(counter, rir_generator.discarded), end="\r")
 
-
             n = db_setup['n_samples']
             db_data_mean += np.sum(data_list, axis=0)/n
 
@@ -222,10 +217,10 @@ def build_db(root):
                     target_path = os.path.join(data_folder_path, target_filename)
                     np.save(data_path, data)
                     np.save(target_path, target)
-                    writer.writerow([data_path, target_path, corners,
-                                        absorption, mics, sources])
+                    writer.writerow([data_path, target_path, corners, absorption, mics, sources])
     print('\nDatabase generated, Normalizing...')
     normalize_dataset(db_csv_path, db_data_mean)
+
     print('Done')
 
 if __name__ == "__main__":

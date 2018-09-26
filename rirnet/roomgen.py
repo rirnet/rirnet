@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 
 
 def generate_from_dict(db_setup):
-    np.random.seed()
     min_side, max_side = db_setup['side']
     min_height, max_height = db_setup['height']
     n_mics = db_setup['n_mics']
