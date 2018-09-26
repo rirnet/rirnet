@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='rirnet',
-        packages=find_packages('rirnet', exclude=['models']),
+        packages=['rirnet'],
+        exclude=['models', '.git'],
         version='',
-        include_package_data=True,
         )

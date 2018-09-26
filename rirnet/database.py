@@ -32,22 +32,18 @@ class RirGenerator:
         for p in self.processes:
             p.start()
 
-
     def kill_dead_proc(self):
         while self.processes and not self.processes[0].is_alive():
             p = self.processes.pop(0)
-            p.kill()
-
+            p.terminate()
 
     def compute_room_proc(self):
         room = rg.generate_from_dict(self.db_setup)
         room.compute_rir()
         self.output.put(room)
 
-
     def __iter__(self):
         return self
-
 
     def __next__(self):
         if self.i_total == self.n_total:
@@ -78,6 +74,8 @@ class RirGenerator:
                                 room.sources[0].position])
                 i_produced += 1
                 if self.i_total + i_produced == self.n_total:
+                    for process in self.processes:
+                        process.terminate()
                     break
         self.i_total += i_produced
         return h_list, info_list
@@ -89,7 +87,7 @@ def remove_leading_zeros(rir):
     return np.array(rir)
 
 
-def generate_waveforms(wav, h_list, db_setup):
+def generate_waveforms(wav, h_list):
     data_list = []
     target_list = []
 
@@ -181,7 +179,7 @@ def build_db(root):
             print('Progress: {:5.01f}%, Discarded {} times.'.format(counter, rir_generator.discarded), end="\r")
 
             wav = random.choice(wav_list)
-            target_list, data_list = generate_waveforms(wav, h_list, db_setup)
+            target_list, data_list = generate_waveforms(wav, h_list)
 
             if db_setup['data_format'] == 'mfcc':
                 data_list = waveforms_to_mfccs(data_list, db_setup)
