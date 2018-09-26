@@ -52,14 +52,6 @@ RUN pip install --upgrade pip
 RUN conda install -y requests && \
     conda clean -ya
 
-# Install pytorch
-#RUN conda install -y pytorch torchvision cuda92 -c pytorch \
-#    && conda clean -ya
-
-#RUN conda install -c conda-forge librosa &&\
-#	conda install -c conda-forge ffmpeg &&\
-#	conda clean -ya
-
 # Copying files
 ADD rirnet /app/rirnet/
 ADD audio /app/audio/
@@ -72,6 +64,3 @@ ADD requirements.txt /app/requirements.txt
 RUN pip install -r /app/requirements.txt
 RUN pip install pyroomacoustics
 RUN pip install .
-
-# Set the default command to python3 
-#CMD ["python3"]
