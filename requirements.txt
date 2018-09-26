@@ -1,8 +1,8 @@
+Cython
 numpy
 scipy
-torchvision
-torch
 librosa
 matplotlib
 pandas
-pyroomacoustics
+shapely
+pyyaml
