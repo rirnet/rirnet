@@ -20,11 +20,10 @@ data_folder = 'data'
 header=['data_path', 'target_path', 'room_corners', 'room_absorption', 'room_mics', 'room_source', 'mean_path', 'std_path']
 
 
-def compute_room_proc(db_setup, output):
-    room = rg.generate_from_dict(db_setup)
+def threaded_compute_rir(room, output):
     room.compute_rir()
     output.put(room)
-
+    
 
 class RirGenerator:
     def __init__(self, db_setup):
@@ -33,10 +32,6 @@ class RirGenerator:
         self.db_setup = db_setup
         self.h_length = None
         self.discarded = 0
-        self.output = mp.Queue()
-        self.processes = [mp.Process(target=compute_room_proc, args=(self.db_setup, self.output)) for x in range(4)]
-        for p in self.processes:
-            p.start()
 
 
     def __iter__(self):
@@ -49,17 +44,20 @@ class RirGenerator:
         i_produced = 0
         h_list = []
         info_list = []
-        room = self.output.get()
-        self.processes.append(mp.Process(target=compute_room_proc, args=(self.db_setup, self.output)))
-        new_proc = self.processes[-1]
-        new_proc.start()
+        room = rg.generate_from_dict(self.db_setup)
+        output = mp.Queue()
+        p = mp.Process(target=threaded_compute_rir, args=(room, output))
+        p.start()
+        room = output.get()
+        p.join()
+        p.terminate()
 
+        
         for i_rir, rir in enumerate(room.rir):
             rir_length = len(rir[0])
             if not self.h_length:
                 self.h_length = au.next_power_of_two(rir_length)
             if rir_length > self.h_length:
-                print('\nDiscarded')
                 self.discarded += 1
                 return self.__next__()
             else:
@@ -69,8 +67,6 @@ class RirGenerator:
                                 room.sources[0].position])
                 i_produced += 1
                 if self.i_total + i_produced == self.n_total:
-                    for p in self.processes:
-                        p.terminate()
                     break
         self.i_total += i_produced
         return h_list, info_list
@@ -165,6 +161,8 @@ def build_db(root):
     while rir_generator.i_total < rir_generator.n_total:
         for h_list, info_list in rir_generator:
             counter = rir_generator.i_total/rir_generator.n_total*100
+            print('Progress: {:5.01f}%, Discarded {} times.'.format(counter, rir_generator.discarded), end="\r")
+
             wav = random.choice(wav_list)
             target_list, data_list = generate_waveforms(wav, h_list, db_setup)
 
@@ -181,11 +179,8 @@ def build_db(root):
 
             if np.size(db_target_mean) == 0:
                 db_target_mean = np.zeros_like(target_list[0])
-                print('Started building db with data of size {}'.format(np.shape(db_target_mean)))
             if np.size(db_data_mean) == 0:
                 db_data_mean = np.zeros_like(data_list[0])
-            print('Progress: {:5.01f}%, Discarded {} times.'.format(counter, rir_generator.discarded), end="\r")
-
 
             n = db_setup['n_samples']
             db_target_mean += np.sum(target_list, axis=0)/n
@@ -208,7 +203,7 @@ def build_db(root):
                     np.save(target_path, target)
                     writer.writerow([data_path, target_path, corners,
                                         absorption, mics, sources, db_mean_path, db_std_path])
-    print('\nDatabase generated, Normalizing...')
+    print('\ndatabase generated, normalizing')
     normalize_dataset(db_csv_path, db_data_mean, db_target_mean)
     np.save(db_mean_path, db_target_mean)
     np.save(db_std_path, np.std(db_target_mean, axis=0))
