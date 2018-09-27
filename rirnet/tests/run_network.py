@@ -44,34 +44,30 @@ class Model:
 
 def main(network_path, data_csv_path):
     model_dir,_ = os.path.split(network_path)
+    data_dir,_ = os.path.split(data_csv_path)
     model = Model(network_path, model_dir)
 
     csv_data = pd.read_csv(data_csv_path)
 
-    data_input_path = csv_data['path_data'][0]
-    data_target_path = csv_data['path_target'][0]
-    mean_y = csv_data['mean_data'][0].strip('[]').split()
-    mean_h = csv_data['mean_target'][0].strip('[]').split()
-    std_y = csv_data['std_data'][0].strip('[]').split()
-    std_h = csv_data['std_target'][0].strip('[]').split()
+    source_path = csv_data['data_path'][0]
+    target_path = csv_data['target_path'][0]
 
-    mean_h = np.array([float(x) for x in mean_h])
-    mean_h = mean_h[:, None]
-    std_h = np.array([float(x) for x in std_h])
-    std_h = std_h[:, None]
+    mean_target = np.load(os.path.join(data_dir, 'mean_target.npy'))
+    std_target = np.load(os.path.join(data_dir, 'std_target.npy'))
+    mean_data = np.load(os.path.join(data_dir, 'mean_data.npy'))
+    std_data = np.load(os.path.join(data_dir, 'std_data.npy'))
 
+    source = np.load(source_path)
+    target = np.load(target_path)
 
-    data_input = np.load(data_input_path)
-    data_target = np.load(data_target_path)
+    output = model.forward(source)/3
+    output = output.cpu().detach().numpy()
 
-    output = model.forward(data_input)
+    output = output*std_target+mean_target
+    target = target*std_target+mean_target
 
-    output = output.detach().cpu().numpy()
-    print(np.shape(output))
-    output = output*std_h+mean_h
-    data_target = data_target*std_h+mean_h
     irf_output = au.mfcc_to_waveform(output, 44100, 2**16)
-    irf_data_target =  au.mfcc_to_waveform(data_target, 44100, 2**16)
+    irf_target =  au.mfcc_to_waveform(target, 44100, 2**16)
 
     x,rate = au.read_wav('../../audio/cher.mp3')
     y = au.convolve(x, irf_output)
@@ -87,9 +83,9 @@ def main(network_path, data_csv_path):
     ax1.set_title('Output')
     ax2.plot(irf_output)
     ax2.set_title('Output IRF')
-    ax3.plot(data_target)
+    ax3.plot(target)
     ax3.set_title('Target')
-    ax4.plot(irf_data_target)
+    ax4.plot(irf_target)
     ax4.set_title('Target IRF')
     plt.show()
 
