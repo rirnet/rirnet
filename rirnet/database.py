@@ -59,7 +59,7 @@ class RirGenerator:
         new_proc.start()
 
         for i_rir, rir in enumerate(room.rir):
-            #rir[0] = rir[0]/max(np.abs(rir[0]))
+            rir[0] = rir[0]/max(np.abs(rir[0]))
             cut_rir = remove_leading_zeros(list(rir[0]))
             rir_length = len(cut_rir)
             if not self.h_length:

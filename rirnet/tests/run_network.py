@@ -48,30 +48,44 @@ def main(network_path, data_csv_path):
     model = Model(network_path, model_dir)
 
     csv_data = pd.read_csv(data_csv_path)
+    for i in [144]: #range(100,200):
+        source_path = csv_data['data_path'][i]
+        target_path = csv_data['target_path'][i]
 
-    source_path = csv_data['data_path'][0]
-    target_path = csv_data['target_path'][0]
+        mean_target = np.load(os.path.join(data_dir, 'mean_target.npy'))
+        std_target = np.load(os.path.join(data_dir, 'std_target.npy'))
+        mean_data = np.load(os.path.join(data_dir, 'mean_data.npy'))
+        std_data = np.load(os.path.join(data_dir, 'std_data.npy'))
 
-    mean_target = np.load(os.path.join(data_dir, 'mean_target.npy'))
-    std_target = np.load(os.path.join(data_dir, 'std_target.npy'))
-    mean_data = np.load(os.path.join(data_dir, 'mean_data.npy'))
-    std_data = np.load(os.path.join(data_dir, 'std_data.npy'))
+        source = np.load(source_path)
+        target = np.load(target_path)
 
-    source = np.load(source_path)
-    target = np.load(target_path)
+        output = model.forward(source)
+        output = output.cpu().detach().numpy()
 
-    output = model.forward(source)/3
-    output = output.cpu().detach().numpy()
+        output = output*std_target+mean_target
+        target = target*std_target+mean_target
 
-    output = output*std_target+mean_target
-    target = target*std_target+mean_target
 
-    irf_output = au.mfcc_to_waveform(output, 44100, 2**16)
-    irf_target =  au.mfcc_to_waveform(target, 44100, 2**16)
+        irf_output = au.mfcc_to_waveform(output, 44100, 2**16)
+        w = np.linspace(1,0, np.size(irf_output))
+        irf_target =  au.mfcc_to_waveform(target, 44100, 2**16)*w
+        irf_output = irf_output*w
 
-    x,rate = au.read_wav('../../audio/cher.mp3')
+        plt.subplot(2,1,1)
+        plt.plot(irf_target)
+        plt.subplot(2,1,2)
+        plt.plot(irf_output)
+        plt.title(i)
+        plt.show()
+
+
+    x,rate = au.read_wav('../../audio/fu.wav')
+    y = au.convolve(x, irf_target)
+    au.save_wav('test.wav', y/np.linalg.norm(y), rate)
+    au.play_file('test.wav')
     y = au.convolve(x, irf_output)
-    au.save_wav('test.wav', y, rate)
+    au.save_wav('test.wav', y/np.linalg.norm(y), rate)
     au.play_file('test.wav')
 
     fig1 = plt.figure()
