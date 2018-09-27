@@ -235,9 +235,9 @@ def build_db(root):
     print('Done')
 
 if __name__ == "__main__":
-    #try:
+    try:
         build_db(sys.argv[1])
-    #except FileNotFoundError:
-    #    print('FileNotFoundError! Did you set the database structure up correctly? (See help-file in database folder).')
-    #except IndexError:
-    #    print('IndexError! This script takes an input; the path to the preferred database.')
+    except FileNotFoundError:
+        print('FileNotFoundError! Did you set the database structure up correctly? (See help-file in database folder).')
+    except IndexError:
+        print('IndexError! This script takes an input; the path to the preferred database.')

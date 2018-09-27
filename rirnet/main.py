@@ -98,11 +98,11 @@ class Model:
             plt.title('Target')
 
             plt.subplot(2,2,3)
-            plt.imshow(output.cpu().detach().numpy()[0][1:])
+            plt.imshow(output.cpu().detach().numpy()[0,:,0:50])
             plt.title('Output')
 
             plt.subplot(2,2,4)
-            plt.imshow(target.cpu().detach().numpy()[0][1:])
+            plt.imshow(target.cpu().detach().numpy()[0,:,0:50])
             plt.title('Target')
 
             plt.savefig('example_output.png')
