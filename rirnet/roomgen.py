@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 
 
 def generate_from_dict(db_setup):
+    np.random.seed()
     min_side, max_side = db_setup['side']
     min_height, max_height = db_setup['height']
     n_mics = db_setup['n_mics']
@@ -17,6 +18,7 @@ def generate_from_dict(db_setup):
 
 def generate(min_side, max_side, min_height, max_height, n_mics, fs=16000,
         max_order=2, min_abs=0.1, max_abs=0.9):
+    np.random.seed()
     floor_shape = generate_floor_shape(min_side, max_side)
     height = np.random.uniform(min_height, max_height)
     absorption = np.random.uniform(min_abs, max_abs)
@@ -39,6 +41,7 @@ def generate(min_side, max_side, min_height, max_height, n_mics, fs=16000,
 
 
 def find_valid_pos(floor_shape, height, n_pos):
+    np.random.seed()
     min_gap = .5
     point_limits = floor_shape.bounds[2:4]
     x_array = []
@@ -74,6 +77,7 @@ def generate_floor_shape(min_side, max_side):
 
 
 def add_box(box1, box1_x1, box1_y1, box1_x2, box1_y2, min_side, max_side):
+    np.random.seed()
 
     box2_x1 = np.random.uniform(box1_x1, box1_x2)
     box2_y1 = np.random.uniform(box1_y1, box1_y2)
@@ -89,6 +93,7 @@ def add_box(box1, box1_x1, box1_y1, box1_x2, box1_y2, min_side, max_side):
 
 
 def subtract_box(box1, box1_x1, box1_y1, box1_x2, box1_y2, min_side, max_side):
+    np.random.seed()
     border_thickness = min_side/3
     p_L_shape = .5 #else make U_shape
 

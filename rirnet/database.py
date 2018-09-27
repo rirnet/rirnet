@@ -131,21 +131,31 @@ def parse_yaml(filename):
     return db_setup
 
 
-def normalize_dataset(db_csv_path, mean):
+def normalize_dataset(db_csv_path, mean, dataset):
+    db_csv_folder,_ = os.path.split(db_csv_path)
+
+    if dataset == 'data':
+        col = 0
+    if dataset == 'target':
+        col = 1
+
     df = pd.read_csv(db_csv_path)
     n_rows = df.shape[0]
     std_sum = np.zeros_like(mean)
 
     for i in range(n_rows):
-        path = df.iloc[i, 0]
+        path = df.iloc[i, col]
         data = np.load(path)
         std_sum += (data-mean)**2
 
     std = np.sqrt(std_sum/(n_rows-1))
 
+    np.save(os.path.join(db_csv_folder, 'std_{}.npy'.format(dataset)), std)
+    np.save(os.path.join(db_csv_folder, 'mean_{}.npy'.format(dataset)), mean)
+
     np.seterr(invalid='ignore')
     for i in range(n_rows):
-        path = df.iloc[i, 0]
+        path = df.iloc[i, col]
         data = np.load(path)
         data = (data-mean)/std
         data = np.nan_to_num(data)
@@ -172,6 +182,7 @@ def build_db(root):
         writer.writerow(header)
 
     db_data_mean = np.array([])
+    db_target_mean = np.array([])
 
     while rir_generator.i_total < rir_generator.n_total:
         for h_list, info_list in rir_generator:
@@ -194,11 +205,13 @@ def build_db(root):
 
             if np.size(db_data_mean) == 0:
                 db_data_mean = np.zeros_like(data_list[0])
+                db_target_mean = np.zeros_like(target_list[0])
                 print('Started building db with data of size {}'.format(np.shape(db_data_mean)))
             print('Progress: {:5.01f}%, Discarded {} times.'.format(counter, rir_generator.discarded), end="\r")
 
             n = db_setup['n_samples']
             db_data_mean += np.sum(data_list, axis=0)/n
+            db_target_mean += np.sum(target_list, axis=0)/n
 
             with open(db_csv_path, 'a') as csvfile:
                 writer = csv.writer(csvfile, delimiter=',')
@@ -217,8 +230,8 @@ def build_db(root):
                     np.save(target_path, target)
                     writer.writerow([data_path, target_path, corners, absorption, mics, sources])
     print('\nDatabase generated, Normalizing...')
-    normalize_dataset(db_csv_path, db_data_mean)
-
+    normalize_dataset(db_csv_path, db_data_mean, 'data')
+    normalize_dataset(db_csv_path, db_target_mean, 'target')
     print('Done')
 
 if __name__ == "__main__":
