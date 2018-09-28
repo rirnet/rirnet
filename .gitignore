@@ -1,6 +1,6 @@
 #gitignore
-tools/__pycache__
-rirnet/__pycache__
+tools/__pycacne__
+rirnet/__pyc*
 rirnet/tests/*.wav
 .idea
 audio/
