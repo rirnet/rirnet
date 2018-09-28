@@ -90,24 +90,25 @@ class Model:
                 eval_loss = getattr(F, self.args.loss_function)(output, target).item()
                 eval_loss_list.append(eval_loss)
             plt.subplot(2,2,1)
-            plt.imshow(output.cpu().detach().numpy()[0,:,:])
+            plt.imshow(output.cpu().detach().numpy()[0,:,:], vmin=-3, vmax=3)
             plt.title('Output')
 
             plt.subplot(2,2,2)
-            plt.imshow(target.cpu().detach().numpy()[0,:,:])
+            plt.imshow(target.cpu().detach().numpy()[0,:,:], vmin=-3, vmax=3)
             plt.title('Target')
 
             plt.subplot(2,2,3)
-            plt.imshow(output.cpu().detach().numpy()[0,:,0:40])
+            plt.imshow(output.cpu().detach().numpy()[0,:,0:40], vmin=-3, vmax=3)
             plt.title('Output')
 
             plt.subplot(2,2,4)
-            plt.imshow(target.cpu().detach().numpy()[0,:,0:40])
+            plt.imshow(target.cpu().detach().numpy()[0,:,0:40], vmin=-3, vmax=3)
             plt.title('Target')
 
             plt.savefig('example_output.png')
             plt.close()
-            self.mean_eval_loss = np.mean(eval_loss_list)
+        self.mean_eval_loss = np.mean(eval_loss_list)
+        print(self.mean_eval_loss)
 
 
     def save_model(self):

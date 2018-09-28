@@ -1,5 +1,5 @@
 #gitignore
-tools/__pycacne__
+tools/__pyc*
 rirnet/__pyc*
 rirnet/tests/*.wav
 .idea

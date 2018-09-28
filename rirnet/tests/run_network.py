@@ -48,7 +48,7 @@ def main(network_path, data_csv_path):
     model = Model(network_path, model_dir)
 
     csv_data = pd.read_csv(data_csv_path)
-    for i in [144]: #range(100,200):
+    for i in [20]: #range(200):
         source_path = csv_data['data_path'][i]
         target_path = csv_data['target_path'][i]
 
@@ -63,29 +63,38 @@ def main(network_path, data_csv_path):
         output = model.forward(source)
         output = output.cpu().detach().numpy()
 
+        plt.subplot(2,2,3)
+        plt.imshow(target.T)
+        plt.subplot(2,2,4)
+        plt.imshow(output.T)
+
         output = output*std_target+mean_target
         target = target*std_target+mean_target
 
+        output = np.pad(output, (0,1), 'edge')
+        target = np.pad(target, (0,1), 'edge')
 
         irf_output = au.mfcc_to_waveform(output, 44100, 2**16)
         w = np.linspace(1,0, np.size(irf_output))
         irf_target =  au.mfcc_to_waveform(target, 44100, 2**16)*w
         irf_output = irf_output*w
 
-        plt.subplot(2,1,1)
-        plt.plot(irf_target)
-        plt.subplot(2,1,2)
-        plt.plot(irf_output)
+        plt.subplot(2,2,1)
         plt.title(i)
+        plt.plot(irf_target)
+        bot, top = plt.ylim()
+        plt.subplot(2,2,2)
+        plt.plot(irf_output)
+        plt.ylim(bot, top)
         plt.show()
 
 
-    x,rate = au.read_wav('../../audio/fu.wav')
+    x,rate = au.read_wav('../../audio/claps.wav')
     y = au.convolve(x, irf_target)
-    au.save_wav('test.wav', y/np.linalg.norm(y), rate)
+    au.save_wav('test.wav', y, rate, norm=True)
     au.play_file('test.wav')
     y = au.convolve(x, irf_output)
-    au.save_wav('test.wav', y/np.linalg.norm(y), rate)
+    au.save_wav('test.wav', y, rate, norm=True)
     au.play_file('test.wav')
 
     fig1 = plt.figure()
