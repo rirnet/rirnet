@@ -28,7 +28,7 @@ class RirGenerator:
         self.h_length = None
         self.discarded = 0
         self.output = mp.Queue()
-        self.processes = [mp.Process(target=self.compute_room_proc) for x in range(12)]
+        self.processes = [mp.Process(target=self.compute_room_proc) for x in range(9)]
         for p in self.processes:
             p.start()
 
