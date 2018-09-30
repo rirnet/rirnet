@@ -6,3 +6,4 @@ rirnet/tests/*.wav
 audio/
 database/*/
 models/
+rirnet.egg-info
