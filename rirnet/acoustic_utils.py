@@ -11,8 +11,7 @@ def mfcc_to_waveform(mfcc, rate, waveform_length, phase_data=None):
 
     dctm = librosa.filters.dct(n_mfcc, n_mel)
     mel_basis = librosa.filters.mel(rate, n_fft)
-    mfcc_to_power = 10.**(np.dot(dctm.T, mfcc)/10.)
-    power_spectrum = np.dot(mel_basis.T, mfcc_to_power)
+    power_spectrum = np.dot(mel_basis.T, 10.**(np.dot(dctm.T, mfcc)/10.))
     amplitude_spectrum = np.sqrt(power_spectrum)
     if phase_data is None:
         phase = np.random.random(np.shape(amplitude_spectrum))*2*np.pi-np.pi
@@ -28,7 +27,7 @@ def waveform_to_mfcc(waveform, rate, n_mfcc):
     phase_data, mel_spectrogram = melspectrogram(waveform, rate, n_fft)
     mel_spectrogram_db = librosa.core.power_to_db(mel_spectrogram)
     mfcc = sp.fftpack.dct(mel_spectrogram_db, axis=0, type=2, norm='ortho')[:n_mfcc]
-    return (phase_data, mfcc)
+    return phase_data, mfcc
 
 
 def melspectrogram(waveform, rate=44100, n_fft=2048, hop_length=512, power=2.0, **kwargs):
