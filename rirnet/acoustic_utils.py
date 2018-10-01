@@ -63,7 +63,9 @@ def resample(waveform, rate, target_rate):
 
 
 def play_file(path):
-    os.system('cvlc '+ path +' --play-and-exit')
+    exitcode = os.system('cvlc '+ path +' --play-and-exit')
+    if exitcode  == 32512:
+	print('Unable to play file. Please install cvlc.')
 
 
 def save_wav(path, data, rate, norm):
