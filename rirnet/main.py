@@ -9,7 +9,6 @@ import os
 import csv
 import pandas as pd
 from datetime import datetime, timedelta
-import time
 import numpy as np
 from importlib import import_module
 from glob import glob
@@ -34,7 +33,7 @@ class Model:
         list_epochs = glob('*.pth')
         list_epochs = [ x for x in list_epochs if "_" not in x ]
         self.optimizer = optim.SGD(self.model.parameters(), lr=self.args.lr, momentum=self.args.momentum)
-        if list_epochs == []:
+        if not list_epochs:
             epoch = 0
         else:
             epoch = max([int(e.split('.')[0]) for e in list_epochs])
@@ -50,13 +49,19 @@ class Model:
 
         train_db = RirnetDatabase(is_training = True, args = self.args, transform = data_transform)
         eval_db = RirnetDatabase(is_training = False, args = self.args, transform = data_transform)
-        self.train_loader = torch.utils.data.DataLoader(train_db, batch_size=self.args.batch_size, shuffle=True, **self.kwargs)
-        self.eval_loader = torch.utils.data.DataLoader(eval_db, batch_size=self.args.batch_size, shuffle=True, **self.kwargs)
+        self.train_loader = torch.utils.data.DataLoader(train_db, batch_size=self.args.batch_size, shuffle=True,
+                                                        **self.kwargs)
+        self.eval_loader = torch.utils.data.DataLoader(eval_db, batch_size=self.args.batch_size, shuffle=True,
+                                                       **self.kwargs)
+
+        self.mean_train_loss = 0
+        self.mean_eval_loss = 0
 
         try:
             getattr(F, self.args.loss_function)
         except AttributeError:
-            print('AttributeError! {} is not a valid loss function. The string must exactly match a pytorch loss function'.format(self.args.loss_function))
+            print('AttributeError! {} is not a valid loss function. The string must exactly match a pytorch loss '
+                  'function'.format(self.args.loss_function))
             sys.exit()
 
 
@@ -89,24 +94,25 @@ class Model:
                 output = self.model(source)
                 eval_loss = getattr(F, self.args.loss_function)(output, target).item()
                 eval_loss_list.append(eval_loss)
-            plt.subplot(2,2,1)
-            plt.imshow(output.cpu().detach().numpy()[0,:,:], vmin=-3, vmax=3)
-            plt.title('Output')
+            if output and target:
+                plt.subplot(2, 2, 1)
+                plt.imshow(output.cpu().detach().numpy()[0, :, :], vmin=-3, vmax=3)
+                plt.title('Output')
 
-            plt.subplot(2,2,2)
-            plt.imshow(target.cpu().detach().numpy()[0,:,:], vmin=-3, vmax=3)
-            plt.title('Target')
+                plt.subplot(2, 2, 2)
+                plt.imshow(target.cpu().detach().numpy()[0, :, :], vmin=-3, vmax=3)
+                plt.title('Target')
 
-            plt.subplot(2,2,3)
-            plt.imshow(output.cpu().detach().numpy()[0,:,0:40], vmin=-3, vmax=3)
-            plt.title('Output')
+                plt.subplot(2, 2, 3)
+                plt.imshow(output.cpu().detach().numpy()[0, :, 0:40], vmin=-3, vmax=3)
+                plt.title('Output')
 
-            plt.subplot(2,2,4)
-            plt.imshow(target.cpu().detach().numpy()[0,:,0:40], vmin=-3, vmax=3)
-            plt.title('Target')
+                plt.subplot(2, 2, 4)
+                plt.imshow(target.cpu().detach().numpy()[0, :, 0:40], vmin=-3, vmax=3)
+                plt.title('Target')
 
-            plt.savefig('example_output.png')
-            plt.close()
+                plt.savefig('example_output.png')
+                plt.close()
         self.mean_eval_loss = np.mean(eval_loss_list)
         print(self.mean_eval_loss)
 
@@ -164,7 +170,7 @@ class Model:
 
 
 def main(model_dir):
-
+    # noinspection PyGlobalUndefined
     global interrupted
     interrupted = False
     signal.signal(signal.SIGINT, signal_handler)

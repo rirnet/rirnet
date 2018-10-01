@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-#from __future__ import print_function, division
 import os
 import pandas as pd
 from torch.utils.data import Dataset
 import numpy as np
+
 
 class RirnetDatabase(Dataset):
     """ Data-Target dataset to use with rirnet"""
