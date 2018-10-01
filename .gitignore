@@ -1,9 +1,10 @@
 #gitignore
 tools/__pyc*
 rirnet/__pyc*
-rirnet/tests/*.wav
+rirnet/tests
 .idea
 audio/
 database/*/
 models/
 rirnet.egg-info
+
