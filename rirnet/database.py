@@ -28,7 +28,7 @@ class RirGenerator:
         self.h_length = None
         self.discarded = 0
         self.output = mp.Queue()
-        self.processes = [mp.Process(target=self.compute_room_proc) for x in range(12)]
+        self.processes = [mp.Process(target=self.compute_room_proc) for x in range(9)]
         for p in self.processes:
             p.start()
 
@@ -59,7 +59,7 @@ class RirGenerator:
         new_proc.start()
 
         for i_rir, rir in enumerate(room.rir):
-            rir[0] = rir[0]/max(np.abs(rir[0]))
+            #rir[0] = rir[0]/max(np.abs(rir[0]))
             cut_rir = remove_leading_zeros(list(rir[0]))
             rir_length = len(cut_rir)
             if not self.h_length:
@@ -115,8 +115,8 @@ def load_wavs(audio_folder, db_setup):
 def waveforms_to_mfccs(waveforms, db_setup):
     fs = db_setup['fs']
     n_mfcc = db_setup['n_mfcc']
-    return [au.waveform_to_mfcc(waveform, fs, n_mfcc) for waveform  in waveforms]
-
+    mfccs = [au.waveform_to_mfcc(waveform, fs, n_mfcc)[1][:, :-1] for waveform  in waveforms]
+    return mfccs
 
 def pad_list_to_pow2(h_list):
     longest_irf = len(max(h_list, key=len))
