@@ -65,10 +65,10 @@ def resample(waveform, rate, target_rate):
 def play_file(path):
     exitcode = os.system('cvlc '+ path +' --play-and-exit')
     if exitcode  == 32512:
-	print('Unable to play file. Please install cvlc.')
+        print('Unable to play file. Please install cvlc.')
 
 
-def save_wav(path, data, rate, norm):
+def save_wav(path, data, rate, norm=None):
     librosa.output.write_wav(path, data, rate, norm)
 
 

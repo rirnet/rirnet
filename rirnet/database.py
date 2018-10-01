@@ -10,6 +10,7 @@ import csv
 import os
 import random
 import pandas as pd
+import glob
 
 db_setup_filename = 'db_setup.yaml'
 db_mean_filename = 'mean.npy'
@@ -105,6 +106,8 @@ def load_wavs(audio_folder, db_setup):
     audio_list = db_setup['source_audio']
     rate = db_setup['fs']
     wav_list = []
+    if audio_list == ['']:
+        audio_list = glob.glob(os.path.join(audio_folder, '*.wav'))
     for audio_filename in audio_list:
         wav_path = os.path.join(audio_folder, audio_filename)
         wav, _ = au.read_wav(wav_path, rate)
