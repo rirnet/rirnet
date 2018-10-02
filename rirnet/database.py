@@ -60,7 +60,7 @@ class RirGenerator:
         new_proc.start()
 
         for i_rir, rir in enumerate(room.rir):
-            #rir[0] = rir[0]/max(np.abs(rir[0]))
+            # rir[0] = rir[0]/max(np.abs(rir[0]))
             cut_rir = remove_leading_zeros(list(rir[0]))
             rir_length = len(cut_rir)
             if not self.h_length:
@@ -118,10 +118,13 @@ def load_wavs(audio_folder, db_setup):
 def waveforms_to_mfccs(waveforms, db_setup):
     fs = db_setup['fs']
     n_mfcc = db_setup['n_mfcc']
-    mfccs = [au.waveform_to_mfcc(waveform, fs, n_mfcc)[1][:, :-1] for waveform  in waveforms]
-    de = np.ones((40,1))
-    de[0] = 100
-    return [mfcc/de for mfcc in mfccs]
+    #mfccs = [au.waveform_to_mfcc(waveform, fs, n_mfcc)[1][:, :-1] for waveform  in waveforms]
+    #de = np.ones((40,1))
+    #de[0] = 100
+    #return [mfcc/de for mfcc in mfccs]
+    mfccs = [au.waveform_to_mfcc(waveform, fs, n_mfcc)[1][:, :-1] for waveform in waveforms]
+    return mfccs
+
 
 def pad_list_to_pow2(h_list):
     longest_irf = len(max(h_list, key=len))
@@ -137,7 +140,7 @@ def parse_yaml(filename):
 
 
 def normalize_dataset(db_csv_path, mean, dataset):
-    db_csv_folder,_ = os.path.split(db_csv_path)
+    db_csv_folder, _ = os.path.split(db_csv_path)
 
     if dataset == 'data':
         col = 0
@@ -169,8 +172,6 @@ def normalize_dataset(db_csv_path, mean, dataset):
 
 def build_db(root):
     root = os.path.abspath(root)
-    db_mean_path = os.path.join(root, db_mean_filename)
-    db_std_path = os.path.join(root, db_std_filename)
     db_csv_path = os.path.join(root, db_csv_filename)
     db_setup_path = os.path.join(root, db_setup_filename)
     db_setup = parse_yaml(db_setup_path)
@@ -205,7 +206,6 @@ def build_db(root):
                 print('No valid data format specified in db_setup.yaml')
                 sys.exit()
 
-
             target_list = waveforms_to_mfccs(target_list, db_setup)
 
             if np.size(db_data_mean) == 0:
@@ -222,10 +222,7 @@ def build_db(root):
                 writer = csv.writer(csvfile, delimiter=',')
                 n_saved = rir_generator.i_total - len(data_list)
                 for i, data in enumerate(data_list):
-                    try:
-                        target = target_list[i]
-                    except:
-                        print(np.shape(data), np.shape(target))
+                    target = target_list[i]
                     corners, absorption, mics, sources = info_list[i]
                     data_filename = '{}_d.npy'.format(n_saved + i)
                     target_filename = '{}_t.npy'.format(n_saved + i)

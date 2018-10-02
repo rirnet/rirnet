@@ -4,7 +4,7 @@ import scipy as sp
 import os
 
 
-def mfcc_to_waveform(mfcc, rate, waveform_length, phase_data=None):
+def mfcc_to_waveform(mfcc, rate, phase_data=None):
     n_mel = 128
     n_fft = 2048
     n_mfcc = mfcc.shape[0]
@@ -43,7 +43,7 @@ def melspectrogram(waveform, rate=44100, n_fft=2048, hop_length=512, power=2.0, 
 
 
 def convolve(x, h):
-    return sp.signal.fftconvolve(x,h)
+    return sp.signal.fftconvolve(x, h)
 
 
 def next_power_of_two(x):
@@ -63,8 +63,8 @@ def resample(waveform, rate, target_rate):
 
 
 def play_file(path):
-    exitcode = os.system('cvlc '+ path +' --play-and-exit')
-    if exitcode  == 32512:
+    exitcode = os.system('cvlc ' + path + ' --play-and-exit')
+    if exitcode == 32512:
         print('Unable to play file. Please install cvlc.')
 
 

@@ -10,6 +10,7 @@ from importlib import import_module
 from glob import glob
 from rirnet.rirnet_database import RirnetDatabase
 
+
 def summary(input_size, model):
         def register_hook(module):
             def hook(module, input, output):
