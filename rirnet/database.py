@@ -119,7 +119,9 @@ def waveforms_to_mfccs(waveforms, db_setup):
     fs = db_setup['fs']
     n_mfcc = db_setup['n_mfcc']
     mfccs = [au.waveform_to_mfcc(waveform, fs, n_mfcc)[1][:, :-1] for waveform  in waveforms]
-    return mfccs
+    de = np.ones((40,1))
+    de[0] = 100
+    return [mfcc/de for mfcc in mfccs]
 
 def pad_list_to_pow2(h_list):
     longest_irf = len(max(h_list, key=len))

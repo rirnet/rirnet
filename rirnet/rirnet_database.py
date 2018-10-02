@@ -33,8 +33,8 @@ class RirnetDatabase(Dataset):
         self.dataset = database.iloc[indices, :]
         self.root_dir = args.db_path
         self.transform = transform
-    
-    
+
+
     def __len__(self):
         return len(self.dataset)
 
