@@ -140,7 +140,6 @@ def calculate_delta_features(data_list):
     return delta_list, delta_2_list
 
 
-
 def parse_yaml(filename):
     with open(filename, 'r') as stream:
         db_setup = yaml.load(stream)
@@ -188,9 +187,7 @@ def normalize_dataset(db_csv_path, mean, delta_mean, delta_2_mean, dataset):
         delta = np.nan_to_num(delta)
         delta_2 = np.nan_to_num(delta_2)
 
-        data = [data, delta, delta_2]
-
-        np.save(path, data)
+        np.save(path, [data, delta, delta_2])
 
 
 def normalize_dataset_target(db_csv_path, mean, dataset):
@@ -211,7 +208,6 @@ def normalize_dataset_target(db_csv_path, mean, dataset):
         std_sum += (data-mean)**2
 
     std = np.sqrt(std_sum/(n_rows-1))
-
 
     np.save(os.path.join(db_csv_folder, 'std_{}.npy'.format(dataset)), std)
     np.save(os.path.join(db_csv_folder, 'mean_{}.npy'.format(dataset)), mean)
