@@ -118,8 +118,8 @@ class Model:
             plt.imshow(target_im[0,1:,0:40], vmin=-rang, vmax=rang)
             plt.title('Target')
 
-                plt.savefig('example_output.png')
-                plt.close()
+            plt.savefig('example_output.png')
+            plt.close()
         self.mean_eval_loss = np.mean(eval_loss_list)
         print(self.mean_eval_loss)
 
