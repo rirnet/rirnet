@@ -9,7 +9,7 @@ import numpy as np
 class RirnetDatabase(Dataset):
     """ Data-Target dataset to use with rirnet"""
 
-    def __init__(self, is_training, args, transform=None):
+    def __init__(self, is_training, args, data_transform=None, target_transform=None):
         """
         Args:
             csv_file (string): Path to the csv file with data-target pairs.
@@ -32,9 +32,10 @@ class RirnetDatabase(Dataset):
         indices = indices[positions]
         self.dataset = database.iloc[indices, :]
         self.root_dir = args.db_path
-        self.transform = transform
-    
-    
+        self.data_transform = data_transform
+        self.target_transform = target_transform
+
+
     def __len__(self):
         return len(self.dataset)
 
@@ -44,7 +45,7 @@ class RirnetDatabase(Dataset):
         target_path = os.path.join(self.root_dir, self.dataset.iloc[idx, 1])
         data = np.load(data_path)
         target = np.load(target_path)
-        if self.transform:
-            data = self.transform(data)
-            target = self.transform(target)
+        if self.data_transform and self.target_transform:
+            data = self.data_transform(data)
+            target = self.target_transform(target)
         return data, target

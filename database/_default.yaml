@@ -8,5 +8,6 @@ absorption: [0.1, 0.9]
 n_mfcc: 40
 n_fft: 2048
 hop_length: 512
-source_audio: ['sample.wav', 'sample.wav']
-data_format: 'mfcc'
+source_audio: ['']
+delta_features: True
+n_proc: 9

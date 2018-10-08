@@ -30,7 +30,7 @@ class RirGenerator:
         self.h_length = None
         self.discarded = 0
         self.output = mp.Queue()
-        self.processes = [mp.Process(target=self.compute_room_proc) for x in range(9)]
+        self.processes = [mp.Process(target=self.compute_room_proc) for x in range(db_setup['n_proc'])]
         for p in self.processes:
             p.start()
 
@@ -119,7 +119,7 @@ def load_wavs(audio_folder, db_setup):
 def waveforms_to_mfccs(waveforms, db_setup):
     fs = db_setup['fs']
     n_mfcc = db_setup['n_mfcc']
-    mfccs = [au.waveform_to_mfcc(waveform, fs, n_mfcc)[1][:, :-1] for waveform in waveforms]
+    mfccs = [au.waveform_to_mfcc(waveform, fs, n_mfcc)[1][:,:-1] for waveform in waveforms]
     return mfccs
 
 
@@ -136,7 +136,6 @@ def calculate_delta_features(data_list):
     for data in data_list:
         delta_list.append(librosa.feature.delta(data))
         delta_2_list.append(librosa.feature.delta(data, order=2))
-
     return delta_list, delta_2_list
 
 
@@ -146,81 +145,34 @@ def parse_yaml(filename):
     return db_setup
 
 
-def normalize_dataset(db_csv_path, mean, delta_mean, delta_2_mean, dataset):
+def save_mean_std(db_csv_path, mean, dataset):
     db_csv_folder, _ = os.path.split(db_csv_path)
-
-    if dataset == 'data':
-        col = 0
-    if dataset == 'target':
-        col = 1
-
-    df = pd.read_csv(db_csv_path)
-    n_rows = df.shape[0]
-    std_sum = np.zeros_like(mean)
-    delta_std_sum = np.zeros_like(delta_mean)
-    delta_2_std_sum = np.zeros_like(delta_2_mean)
-
-    for i in range(n_rows):
-        path = df.iloc[i, col]
-        data, delta, delta_2 = np.load(path)
-        std_sum += (data-mean)**2
-        delta_std_sum += (delta-delta_mean)**2
-        delta_2_std_sum += (delta_2-delta_2_mean)**2
-
-    std = np.sqrt(std_sum/(n_rows-1))
-    delta_std = np.sqrt(delta_std_sum/(n_rows-1))
-    delta_2_std = np.sqrt(delta_2_std_sum/(n_rows-1))
-
-    np.save(os.path.join(db_csv_folder, 'std_{}.npy'.format(dataset)), std)
-    np.save(os.path.join(db_csv_folder, 'mean_{}.npy'.format(dataset)), mean)
-
-    np.seterr(invalid='ignore')
-    for i in range(n_rows):
-        path = df.iloc[i, col]
-        data, delta, delta_2 = np.load(path)
-
-        data = (data-mean)/std
-        delta = (delta-delta_mean)/delta_std
-        delta_2 = (delta_2-delta_2_mean)/delta_2_std
-
-        data = np.nan_to_num(data)
-        delta = np.nan_to_num(delta)
-        delta_2 = np.nan_to_num(delta_2)
-
-        np.save(path, [data, delta, delta_2])
-
-
-def normalize_dataset_target(db_csv_path, mean, dataset):
-    db_csv_folder, _ = os.path.split(db_csv_path)
-
-    if dataset == 'data':
-        col = 0
-    if dataset == 'target':
-        col = 1
 
     df = pd.read_csv(db_csv_path)
     n_rows = df.shape[0]
     std_sum = np.zeros_like(mean)
 
-    for i in range(n_rows):
-        path = df.iloc[i, col]
-        data = np.load(path)
-        std_sum += (data-mean)**2
+    if dataset == 'data':
+        col = 0
+        for i in range(n_rows):
+            path = df.iloc[i, col]
+            data = np.load(path)
+            std_sum += sum([(d.T-mean)**2 for d in data.T])
+        n_std = n_rows * np.shape(data)[-1]
+    elif dataset == 'target':
+        col = 1
+        for i in range(n_rows):
+            path = df.iloc[i, col]
+            data = np.load(path)
+            std_sum += (data-mean)**2
+        n_std = n_rows
+    else:
+        print('How did you even get here?!')
 
-    std = np.sqrt(std_sum/(n_rows-1))
+    std = np.sqrt(std_sum/(n_std-1))
 
     np.save(os.path.join(db_csv_folder, 'std_{}.npy'.format(dataset)), std)
     np.save(os.path.join(db_csv_folder, 'mean_{}.npy'.format(dataset)), mean)
-
-    np.seterr(invalid='ignore')
-    for i in range(n_rows):
-        path = df.iloc[i, col]
-        data = np.load(path)
-
-        data = (data-mean)/std
-        data = np.nan_to_num(data)
-
-        np.save(path, data)
 
 
 def build_db(root):
@@ -241,8 +193,6 @@ def build_db(root):
         writer.writerow(header)
 
     db_data_mean = np.array([])
-    db_delta_mean = np.array([])
-    db_delta_2_mean = np.array([])
     db_target_mean = np.array([])
 
     while rir_generator.i_total < rir_generator.n_total:
@@ -253,30 +203,25 @@ def build_db(root):
             wav = random.choice(wav_list)
             target_list, data_list = generate_waveforms(wav, h_list)
 
-            if db_setup['data_format'] == 'mfcc':
-                data_list = waveforms_to_mfccs(data_list, db_setup)
-            elif db_setup['data_format'] == 'waveform':
-                data_list = data_list[:, None]
-            else:
-                print('No valid data format specified in db_setup.yaml')
-                sys.exit()
-
-            delta_list, delta_2_list = calculate_delta_features(data_list)
-
+            data_list = waveforms_to_mfccs(data_list, db_setup)
             target_list = waveforms_to_mfccs(target_list, db_setup)
 
+            if db_setup['delta_features']:
+                delta_1_list, delta_2_list = calculate_delta_features(data_list)
+                data_list = [[data, delta_1, delta_2] for data, delta_1, delta_2 in zip(data_list, delta_1_list, delta_2_list)]
+            else:
+                data_list = [[data] for data in data_list]
+
+            target_list = [[target] for target in target_list]
+
             if np.size(db_data_mean) == 0:
-                db_data_mean = np.zeros_like(data_list[0])
-                db_delta_mean = np.zeros_like(delta_list[0])
-                db_delta_2_mean = np.zeros_like(delta_2_list[0])
+                db_data_mean = np.zeros(np.shape(data_list)[1:3])
                 db_target_mean = np.zeros_like(target_list[0])
-                print('Started building db with data of size {}'.format(np.shape(db_data_mean)))
+                print('Started building db with data of size {}'.format(np.shape(data_list[0])))
             print('Progress: {:5.01f}%, Discarded {} times.'.format(counter, rir_generator.discarded), end="\r")
 
             n = db_setup['n_samples']
-            db_data_mean += np.sum(data_list, axis=0)/n
-            db_delta_mean += np.sum(delta_list, axis=0)/n
-            db_delta_2_mean += np.sum(delta_2_list, axis=0)/n
+            db_data_mean += np.sum(data_list, axis=(0, 3))/(n*np.shape(data_list)[-1])
             db_target_mean += np.sum(target_list, axis=0)/n
 
             with open(db_csv_path, 'a') as csvfile:
@@ -289,13 +234,12 @@ def build_db(root):
                     target_filename = '{}_t.npy'.format(n_saved + i)
                     data_path = os.path.join(data_folder_path, data_filename)
                     target_path = os.path.join(data_folder_path, target_filename)
-                    data = [data, delta_list[i], delta_2_list[i]]
                     np.save(data_path, data)
                     np.save(target_path, target)
                     writer.writerow([data_path, target_path, corners, absorption, mics, sources])
     print('\nDatabase generated, Normalizing...')
-    normalize_dataset(db_csv_path, db_data_mean, db_delta_mean, db_delta_2_mean, 'data')
-    normalize_dataset_target(db_csv_path, db_target_mean, 'target')
+    save_mean_std(db_csv_path, db_data_mean, 'data')
+    save_mean_std(db_csv_path, db_target_mean, 'target')
     print('Done')
 
 if __name__ == "__main__":
