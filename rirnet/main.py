@@ -23,7 +23,6 @@ class Model:
         net = import_module('net')
         self.model = net.Net()
         self.args = self.model.args()
-        #torch.manual_seed(self.args.seed)
 
         use_cuda = not self.args.no_cuda and torch.cuda.is_available()
         self.device = torch.device("cuda" if use_cuda else "cpu")
@@ -33,7 +32,7 @@ class Model:
         list_epochs = glob('*.pth')
         list_epochs = [ x for x in list_epochs if "_" not in x ]
         self.optimizer = optim.SGD(self.model.parameters(), lr=self.args.lr, momentum=self.args.momentum, nesterov=True)
-        if list_epochs == []:
+        if not list_epochs:
             epoch = 0
         else:
             epoch = max([int(e.split('.')[0]) for e in list_epochs])
@@ -45,10 +44,11 @@ class Model:
                 g['momentum'] = self.args.momentum
         self.epoch = epoch
         self.csv_path = os.path.join(self.args.db_path, 'db.csv')
-        data_transform = self.model.transform()
+        data_transform = self.model.data_transform()
+        target_transform = self.model.target_transform()
 
-        train_db = RirnetDatabase(is_training = True, args = self.args, transform = data_transform)
-        eval_db = RirnetDatabase(is_training = False, args = self.args, transform = data_transform)
+        train_db = RirnetDatabase(is_training = True, args = self.args, data_transform = data_transform, target_transform = target_transform)
+        eval_db = RirnetDatabase(is_training = False, args = self.args, data_transform = data_transform, target_transform = target_transform)
         self.train_loader = torch.utils.data.DataLoader(train_db, batch_size=self.args.batch_size, shuffle=True,
                                                         **self.kwargs)
         self.eval_loader = torch.utils.data.DataLoader(eval_db, batch_size=self.args.batch_size, shuffle=True,
@@ -98,24 +98,16 @@ class Model:
             target_im = target.cpu().detach().numpy()
             output_im = output.cpu().detach().numpy()
 
-            plt.subplot(2,2,1)
-            plt.plot(output_im[0,:5,:])#, vmin=-3, vmax=3)
-            plt.title('Output')
-
-            plt.subplot(2,2,2)
-            plt.plot(target_im[0,:5,:])#, vmin=-3, vmax=3)
-            plt.title('Target')
-
-            vmin = np.abs(np.min([np.min(target_im[0,1:,:]), np.min(output_im[0,1:,:])]))
-            vmax = np.max([np.max(target_im[0,1:,:]), np.max(output_im[0,1:,:])])
+            vmin = np.abs(np.min([np.min(target_im[0, 0, :, :]), np.min(output_im[0, 0, :, :])]))
+            vmax = np.max([np.max(target_im[0, 0, :, :]), np.max(output_im[0, 0, :, :])])
             rang = np.max([vmin, vmax])
 
-            plt.subplot(2,2,3)
-            plt.imshow(output_im[0,1:,0:40], vmin=-rang, vmax=rang)
+            plt.subplot(2, 1, 1)
+            plt.imshow(output_im[0, 0, :, 0:40], vmin=-rang, vmax=rang)
             plt.title('Output')
 
-            plt.subplot(2,2,4)
-            plt.imshow(target_im[0,1:,0:40], vmin=-rang, vmax=rang)
+            plt.subplot(2, 1, 2)
+            plt.imshow(target_im[0, 0, :, 0:40], vmin=-rang, vmax=rang)
             plt.title('Target')
 
             plt.savefig('example_output.png')
