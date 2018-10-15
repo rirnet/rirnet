@@ -1,10 +1,9 @@
 #gitignore
-tools/__pyc*
-rirnet/__pyc*
-rirnet/tests
+delta_features/tools/__pyc*
+delta_features/rirnet/__pyc*
 .idea
 audio/
-database/*/
-models/
-rirnet.egg-info
+delta_features/database/*/
+delta_features/models/
+delta_features/rirnet.egg-info
 
