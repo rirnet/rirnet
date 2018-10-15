@@ -3,7 +3,7 @@ delta_features/tools/__pyc*
 delta_features/rirnet/__pyc*
 .idea
 audio/
-delta_features/database/*/
+delta_features/database/
 delta_features/models/
 delta_features/rirnet.egg-info
 
