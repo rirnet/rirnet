@@ -9,4 +9,6 @@ delta_features_GAN/database/data/
 delta_features_GAN/models/
 peaks/database/data/
 peaks/models/
+compressor/database/data/
+compressor/models/
 
