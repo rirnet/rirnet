@@ -73,7 +73,7 @@ class Model:
             source, target = source.to(self.device), target.to(self.device)
             output = self.model(source)
             self.optimizer.zero_grad()
-            train_loss = getattr(F, self.args.loss_function)(output, target)
+            train_loss = self.hausdorff(output, target)
 
             train_loss.backward()
             self.optimizer.step()
@@ -83,6 +83,14 @@ class Model:
                     self.epoch + 1, batch_idx * len(source), len(self.train_loader.dataset),
                     100. * batch_idx / len(self.train_loader), train_loss.item()))
         self.mean_train_loss = np.mean(loss_list)
+        target_im = target.cpu().detach().numpy()
+        output_im = output.cpu().detach().numpy()
+
+        plt.plot(target_im[0, 0, :], target_im[0, 1, :], '--o', markersize=0.7, linewidth = 0.3)
+        plt.plot(output_im[0, 0, :], output_im[0, 1, :], '--x', markersize=0.7, linewidth = 0.3)
+        plt.title('train')
+        plt.savefig('train_output.png')
+        plt.close()
 
 
     def evaluate(self):
@@ -92,23 +100,15 @@ class Model:
             for batch_idx, (source, target) in enumerate(self.eval_loader):
                 source, target = source.to(self.device), target.to(self.device)
                 output = self.model(source)
-                eval_loss = getattr(F, self.args.loss_function)(output, target).item()
+                eval_loss = self.hausdorff(output, target)
                 eval_loss_list.append(eval_loss)
 
-            target_im = target.cpu().detach().numpy()
             output_im = output.cpu().detach().numpy()
+            target_im = target.cpu().detach().numpy()
 
-            vmin = np.abs(np.min([np.min(target_im[0, 0, :, :]), np.min(output_im[0, 0, :, :])]))
-            vmax = np.max([np.max(target_im[0, 0, :, :]), np.max(output_im[0, 0, :, :])])
-            rang = np.max([vmin, vmax])
-
-            plt.subplot(2, 1, 1)
-            plt.imshow(output_im[0, 0, :, 0:40], vmin=-rang, vmax=rang)
-            plt.title('Output')
-
-            plt.subplot(2, 1, 2)
-            plt.imshow(target_im[0, 0, :, 0:40], vmin=-rang, vmax=rang)
-            plt.title('Target')
+            plt.plot(target_im[0, 0, :], target_im[0, 1, :], '--o', markersize=0.7, linewidth = 0.3)
+            plt.plot(output_im[0, 0, :], output_im[0, 1, :], '--x', markersize=0.7, linewidth = 0.3)
+            plt.title('eval')
 
             plt.savefig('example_output.png')
             plt.close()
@@ -152,6 +152,7 @@ class Model:
         plt.ylabel('Loss ({})'.format(self.args.loss_function))
         plt.semilogy(epochs, train_losses, label='Training Loss')
         plt.semilogy(epochs, eval_losses, label='Evaluation Loss')
+        plt.grid(True, which='both')
         plt.legend()
         plt.savefig('loss_over_epochs.png')
         plt.close()
@@ -161,11 +162,27 @@ class Model:
             writer = csv.writer(csvfile, delimiter=',')
             writer.writerow(['stopped', 'stopped', 'stopped', datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
 
-
     def start_session(self):
         with open('loss_over_epochs.csv', 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
             writer.writerow(['started', 'started', 'started', datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+
+    def hausdorff(self, output, target):
+        res = 0
+        for i, _ in enumerate(output):
+            x = output[i]
+            y = target[i]
+
+            n = x.size(0)
+            d = x.size(1)
+            x = x.expand(n,n,d)
+            y = y.expand(n,n,d)
+            dist = torch.pow(x - y, 2).sum(2)
+
+            mean_1 = torch.mean(torch.min(dist, 0)[0])
+            mean_2 = torch.mean(torch.min(dist, 1)[0])
+            res += mean_1 + mean_2
+        return res/100000
 
 
 def main(model_dir):
