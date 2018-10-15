@@ -17,7 +17,7 @@ db_setup_filename = 'db_setup.yaml'
 db_mean_filename = 'mean.npy'
 db_std_filename = 'std.npy'
 db_csv_filename = 'db.csv'
-audio_rel_path = '../../../audio'
+audio_rel_path = '../../audio'
 data_folder = 'data'
 header=['data_path', 'target_path', 'room_corners', 'room_absorption', 'room_mics', 'room_source']
 
