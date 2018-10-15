@@ -1,9 +1,12 @@
 #gitignore
-delta_features/tools/__pyc*
-delta_features/rirnet/__pyc*
 .idea
 audio/
-delta_features/database/
+pkg/rirnet.egg-info
+
+delta_features/database/data/
 delta_features/models/
-delta_features/rirnet.egg-info
+delta_features_GAN/database/data/
+delta_features_GAN/models/
+peaks/database/data/
+peaks/models/
 
