@@ -20,7 +20,7 @@ db_setup_filename = 'db_setup.yaml'
 db_mean_filename = 'mean.npy'
 db_std_filename = 'std.npy'
 db_csv_filename = 'db.csv'
-audio_rel_path = '../../../audio/chamber'
+audio_rel_path = '../../audio/chamber'
 data_folder = 'data'
 header=['data_path', 'target_path', 'room_corners', 'room_absorption', 'room_mics', 'room_source']
 
@@ -80,15 +80,15 @@ class RirGenerator:
                     peaks = [times, alphas]
 
                 ###### sorting along x-direction
-                peaks_1 = sorted(zip(peaks[0], peaks[1]), key = operator.itemgetter(0))
-                x1, y1 = zip(*peaks_1)
+#                peaks_1 = sorted(zip(peaks[0], peaks[1]), key = operator.itemgetter(0))
+#                x1, y1 = zip(*peaks_1)
 
                 ###### sorting along y-direction
-                peaks_2 = sorted(zip(peaks[0], peaks[1]), key = operator.itemgetter(1))
-                x2, y2 = zip(*peaks_2)
+#                peaks_2 = sorted(zip(peaks[0], peaks[1]), key = operator.itemgetter(1))
+#                x2, y2 = zip(*peaks_2)
 
                 ###### using the y-direction sorting
-                peaks = [x2, y2]
+#                peaks = [x2, y2]
                 ###### nearest-neighbour sorting is also a possibility
                 #s = 10000
                 #zip_peaks = [[a/s,np.log(b)] for a,b in zip(peaks[0], peaks[1])]
@@ -125,28 +125,22 @@ class RirGenerator:
         for m, mic in enumerate(room.mic_array.R.T):
             distances = room.sources[0].distance(mic)
             times = distances/343.0*room.fs
-            alphas = 10. * room.sources[0].damping / distances
+            alphas = room.sources[0].damping / (4.*np.pi*distances)
             slice = tuple(np.where(room.visibility[0][m] == 1))
+            alphas = alphas[slice]
+            times = times[slice]
+            orders = room.sources[0].orders[slice]
+            
+            ordered_inds = []
+            for order in range(min(orders), max(orders)):
+                order_inds = np.where(orders == order)[0]
+                time_inds = np.argsort(times[order_inds])
+                for ind in order_inds[time_inds]:
+                    ordered_inds.append(ind)
 
-            peaks.append([times[slice] - min(times[slice]), alphas[slice]])
+            peaks.append([times[ordered_inds] - min(times[ordered_inds]), alphas[ordered_inds]])
         return peaks
 
-
-    ###### the transform is done in this function
-    def compute_peaks_2(self, room):
-        if room.visibility is None:
-            room.image_source_model()
-        peaks = []
-        for m, mic in enumerate(room.mic_array.R.T):
-            distances = room.sources[0].distance(mic)
-            times = distances/343.0*room.fs
-            print('new', room.sources[0].damping / np.log(np.log(4.*np.pi*distances)))
-            print('old', 10. * room.sources[0].damping / distances)
-            alphas = room.sources[0].damping / np.log(np.log((4.*np.pi*distances)))
-            slice = tuple(np.where(room.visibility[0][m] == 1))
-
-            peaks.append([times[slice] - min(times[slice]), alphas[slice]])
-        return peaks
 
 def NN(A):
     """Nearest neighbor algorithm.
@@ -330,9 +324,4 @@ def build_db(root):
     print('Done')
 
 if __name__ == "__main__":
-    try:
-        build_db(sys.argv[1])
-    except FileNotFoundError:
-        print('FileNotFoundError! Did you set the database structure up correctly? (See help-file in database folder).')
-    except IndexError:
-        print('IndexError! This script takes an input; the path to the preferred database.')
+    build_db(sys.argv[1])

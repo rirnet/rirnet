@@ -50,8 +50,8 @@ def next_power_of_two(x):
     return 1 if x == 0 else 2**(x-1).bit_length()
 
 
-def pad_to(x, length):
-    return np.pad(x, (0, length - np.size(x)), 'constant')
+def pad_to(x, length, value=0):
+    return np.pad(x, (0, length - np.size(x)), 'constant', constant_values=value)
 
 
 def normalize(x):

@@ -104,7 +104,7 @@ class Model:
             train_loss_G = self.hausdorff(fake, target)
             train_loss_G.backward(retain_graph=True)
             decision = self.D(fake)
-            train_loss_D = getattr(F, self.G_args.loss_function)(decision.squeeze(), Variable(torch.ones(source.data.size()[0]).cuda()))*0.0005
+            train_loss_D = getattr(F, self.G_args.loss_function)(decision.squeeze(), Variable(torch.ones(source.data.size()[0]).cuda()))
             train_loss_D.backward()
             self.G_optimizer.step()
             G_loss_list.append(train_loss_G.item())
