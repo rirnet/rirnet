@@ -1,4 +1,4 @@
-n_samples: 1000
+n_samples: 100
 n_mics: 10
 side: [6, 20]
 height: [2, 4]
