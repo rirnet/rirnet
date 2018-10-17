@@ -32,12 +32,14 @@ class Net(nn.Module):
         self.bn9 = nn.BatchNorm1d(512, affine=True)
         self.pool = nn.MaxPool1d(2)
         self.dropout = nn.Dropout(p=0.3)
-        self.map1 = nn.Linear(8192, 2048)
+        self.map1 = nn.Linear(2048, 2048)
+        self.map2 = nn.Linear(2048, 2048)
 
 
         # -------------  Forward Pass  ------------- #
     def forward(self, x):
         x = F.relu(self.bn1(self.conv1(x)))
+        x = self.pool(x)
         x = F.relu(self.bn2(self.conv2(x)))
         x = self.pool(x)
         x = F.relu(self.bn3(self.conv3(x)))
@@ -46,6 +48,7 @@ class Net(nn.Module):
         x = self.pool(x)
         x = F.relu(self.bn5(self.conv5(x)))
         x = self.dropout(x)
+        x = self.pool(x)
         x = F.relu(self.bn6(self.conv6(x)))
         x = self.pool(x)
         x = F.relu(self.bn7(self.conv7(x)))
@@ -56,6 +59,7 @@ class Net(nn.Module):
         p = x.size()
         (_, C, H) = x.data.size()
         x = x.view( -1 , C * H)
+        x = self.map1(x)
         x = self.map1(x)
         x = x.view(-1, 2, 1024)
         return F.sigmoid(x)
@@ -70,7 +74,7 @@ class Net(nn.Module):
                             help='input batch size for testing (default: 1000)')
         parser.add_argument('--epochs', type=int, default=5000, metavar='N',
                             help='number of epochs to train (default: 10)')
-        parser.add_argument('--lr', type=float, default=0.005, metavar='LR',
+        parser.add_argument('--lr', type=float, default=0.1, metavar='LR',
                             help='learning rate (default: 0.005)')
         parser.add_argument('--momentum', type=float, default=0.1, metavar='M',
                             help='SGD momentum (default: 0.5)')
