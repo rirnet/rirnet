@@ -1,7 +1,14 @@
 #gitignore
 .idea
 audio/
+mean_data.npy
+mean_target.npy
+std_data.npy
+std_target.npy
+db.csv
+
 pkg/rirnet.egg-info
+pkg/rirnet/__pycache__/
 
 delta_features/database/data/
 delta_features/models/
