@@ -101,29 +101,33 @@ class Model:
 
             source, target = source.to(self.device), target.to(self.device)
 
-            if batch_idx%2 == 0:
-                self.G_optimizer.zero_grad()
-                abs_gen_rir = self.G(source)
-                self.D_optimizer.zero_grad()
-                abs_real_rir = self.D(target).detach()
-                l1 = self.hausdorff(abs_gen_rir, abs_real_rir)
-                l1.backward(retain_graph = True)
-            else:
-                self.G_optimizer.zero_grad()
-                abs_gen_rir = self.G(source).detach()
-                self.D_optimizer.zero_grad()
-                abs_real_rir = self.D(target)
-                l11 = self.hausdorff(abs_real_rir, abs_gen_rir)
-                l11.backward(retain_graph = True)
+            self.G_optimizer.zero_grad()
+            self.D_optimizer.zero_grad()
+            abs_gen_rir = self.G(source)
+            abs_real_rir = self.D(target).detach()
+            l1 = self.hausdorff(abs_gen_rir, abs_real_rir)
+            l1.backward(retain_graph = True)
+            self.G_optimizer.step()
+
+            abs_real_rir = self.D(target)
+            abs_gen_rir = self.G(source).detach()
+            l11 = self.hausdorff(abs_real_rir, abs_gen_rir)
+            l11.backward(retain_graph = True)
+            self.D_optimizer.step()
 
 
+            abs_gen_rir = self.G(source)
+            abs_real_rir = self.D(target)
+            l1 = self.hausdorff(abs_gen_rir, abs_real_rir)
+            l11 = self.hausdorff(abs_real_rir, abs_gen_rir)
             self.R_optimizer.zero_grad()
             gen_rir = self.R(abs_gen_rir)
-
             gen_rir[:,0] = (gen_rir[:,0].clone().t() - gen_rir[:,0,0].clone()).t()
             l2 = self.hausdorff(gen_rir, target)
 
             #l2 = getattr(F, self.G_args.loss_function)(gen_rir, target)
+            l1.backward(retain_graph = True)
+            l11.backward(retain_graph = True)
             l2.backward()
 
             self.G_optimizer.step()
@@ -134,9 +138,9 @@ class Model:
             l2_loss_list.append(l2.item())
 
             if batch_idx % self.G_args.log_interval == 0:
-                print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLoss: {:.6f}, {:.6f}'.format(
+                print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLoss: {:.6f}, {:.6f}, {:.6f}'.format(
                     self.epoch + 1, batch_idx * len(source), len(self.train_loader.dataset),
-                    100. * batch_idx / len(self.train_loader), l1.item(), l2.item()))
+                    100. * batch_idx / len(self.train_loader), l1.item(), l11.item(), l2.item()))
 
         self.l1_mean_train_loss = np.mean(l1_loss_list)
         self.l2_mean_train_loss = np.mean(l2_loss_list)
