@@ -13,6 +13,8 @@ peaks_GAN/database/data/
 peaks_GAN/models/
 peaks_GAN_refiner/database/data/
 peaks_GAN_refiner/models/
+peaks_GAN_abstract/database/data/
+peaks_GAN_abstract/models/
 compressor/database/data/
 compressor/models/
 
