@@ -79,7 +79,7 @@ class Net(nn.Module):
                             help='input batch size for testing (default: 1000)')
         parser.add_argument('--epochs', type=int, default=5000, metavar='N',
                             help='number of epochs to train (default: 10)')
-        parser.add_argument('--lr', type=float, default=0.05, metavar='LR',
+        parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
                             help='learning rate (default: 0.005)')
         parser.add_argument('--momentum', type=float, default=0.1, metavar='M',
                             help='SGD momentum (default: 0.5)')

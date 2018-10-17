@@ -120,8 +120,7 @@ class Model:
             self.R_optimizer.zero_grad()
             gen_rir = self.R(abs_gen_rir)
 
-            #gen_rir[:,0] = (gen_rir[:,0].clone().t() - gen_rir[:,0,0].clone()).t()
-
+            gen_rir[:,0] = (gen_rir[:,0].clone().t() - gen_rir[:,0,0].clone()).t()
             l2 = self.hausdorff(gen_rir, target)
 
             #l2 = getattr(F, self.G_args.loss_function)(gen_rir, target)
