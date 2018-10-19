@@ -15,6 +15,7 @@ import numpy as np
 from importlib import import_module
 from glob import glob
 import signal
+from pyroomacoustics.build_rir import fast_rir_builder
 
 
 # -------------  Initialization  ------------- #
@@ -24,26 +25,26 @@ class Model:
         sys.path.append(model_dir)
         generator_rir = import_module('generator_rir')
         generator_sig = import_module('generator_sig')
-        refiner = import_module('decoder')
+        decoder = import_module('decoder')
         self.GS = generator_sig.Net()
         self.GR = generator_rir.Net()
-        self.R = refiner.Net()
+        self.D = decoder.Net()
         self.GS_args = self.GS.args()
         self.GR_args = self.GR.args()
-        self.R_args = self.R.args()
+        self.D_args = self.D.args()
 
         use_cuda = not self.GS_args.no_cuda and torch.cuda.is_available()
         self.device = torch.device("cuda" if use_cuda else "cpu")
         self.GS.to(self.device)
         self.GR.to(self.device)
-        self.R.to(self.device)
+        self.D.to(self.device)
         self.kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
 
         list_epochs = glob('*.pth')
         list_epochs = [ x for x in list_epochs if "GSo" not in x ]
         self.GS_optimizer = optim.SGD(self.GS.parameters(), lr=self.GS_args.lr, momentum=self.GS_args.momentum, nesterov=True)
         self.GR_optimizer = optim.SGD(self.GR.parameters(), lr=self.GR_args.lr, momentum=self.GR_args.momentum, nesterov=True)
-        self.R_optimizer = optim.SGD(self.R.parameters(), lr=self.R_args.lr, momentum=self.R_args.momentum, nesterov=True)
+        self.D_optimizer = optim.SGD(self.D.parameters(), lr=self.D_args.lr, momentum=self.D_args.momentum, nesterov=True)
         if list_epochs == []:
             epoch = 0
         else:
@@ -52,21 +53,20 @@ class Model:
             self.GS.load_state_dict(torch.load(os.path.join(model_dir, '{}_GS.pth'.format(str(epoch)))))
             self.GR_optimizer.load_state_dict(torch.load(os.path.join(model_dir, '{}_GRo.pth'.format(str(epoch)))))
             self.GR.load_state_dict(torch.load(os.path.join(model_dir, '{}_GR.pth'.format(str(epoch)))))
-            self.R_optimizer = optim.SGD(self.R.parameters(), lr=self.R_args.lr, momentum=self.R_args.momentum, nesterov=True)
-            #self.R_optimizer.load_state_dict(torch.load(os.path.join(model_dir, '{}_Ro.pth'.format(str(epoch)))))
-            #self.R.load_state_dict(torch.load(os.path.join(model_dir, '{}_R.pth'.format(str(epoch)))))
+            self.D_optimizer.load_state_dict(torch.load(os.path.join(model_dir, '{}_Do.pth'.format(str(epoch)))))
+            self.D.load_state_dict(torch.load(os.path.join(model_dir, '{}_D.pth'.format(str(epoch)))))
             self.GS.cuda()
             self.GR.cuda()
-            self.R.cuda()
+            self.D.cuda()
             for g in self.GS_optimizer.param_groups:
                 g['lr'] = self.GS_args.lr
                 g['momentum'] = self.GS_args.momentum
             for g in self.GR_optimizer.param_groups:
                 g['lr'] = self.GR_args.lr
                 g['momentum'] = self.GR_args.momentum
-            for g in self.R_optimizer.param_groups:
-                g['lr'] = self.R_args.lr
-                g['momentum'] = self.R_args.momentum
+            for g in self.D_optimizer.param_groups:
+                g['lr'] = self.D_args.lr
+                g['momentum'] = self.D_args.momentum
 
 
         self.epoch = epoch
@@ -93,7 +93,7 @@ class Model:
     def train(self):
         self.GS.train()
         self.GR.train()
-        self.R.train()
+        self.D.train()
         l1_loss_list = []
         l2_loss_list = []
         l3_loss_list = []
@@ -104,7 +104,7 @@ class Model:
 
             self.GS_optimizer.zero_grad()
             self.GR_optimizer.zero_grad()
-            self.R_optimizer.zero_grad()
+            self.D_optimizer.zero_grad()
 
             ##Forward and update GS
             abs_gen_rir = self.GS(source)
@@ -120,24 +120,26 @@ class Model:
             l2.backward(retain_graph = True)
             self.GR_optimizer.step()
 
-            ##Forward through GS, GR and R, update all
+            self.GS_optimizer.zero_grad()
+            self.GR_optimizer.zero_grad()
+
+            torch.cuda.empty_cache()
+            ##Forward through GS, GR and D, update all
             abs_gen_rir = self.GS(source)
             abs_real_rir = self.GR(target)
-            l1 = self.hausdorff(abs_gen_rir, abs_real_rir)
-            l2 = self.hausdorff(abs_real_rir, abs_gen_rir)
-            if batch_idx%2 == 0:
-                gen_rir = self.R(abs_gen_rir)
-            else:
-                gen_rir = self.R(abs_real_rir)
+            l = self.hausdorff(abs_gen_rir, abs_real_rir)
+            #if batch_idx%2 == 0:
+            gen_rir = self.D(abs_gen_rir)
+            #else:
+            #    gen_rir = self.D(abs_real_rir)
             gen_rir[:,0] = (gen_rir[:,0].clone().t() - gen_rir[:,0,0].clone()).t()
-            l3 = self.hausdorff(gen_rir, target)
-            l1.backward(retain_graph = True)
-            l2.backward(retain_graph = True)
+            l3 = self.weighted_hausdorff(gen_rir, target)
+            l.backward(retain_graph = True)
             l3.backward()
 
             self.GS_optimizer.step()
             self.GR_optimizer.step()
-            self.R_optimizer.step()
+            self.D_optimizer.step()
 
             l1_loss_list.append(l1.item())
             l2_loss_list.append(l2.item())
@@ -175,18 +177,22 @@ class Model:
         plt.close()
 
     def evaluate(self):
-        self.G.eval()
+        self.GS.eval()
+        self.D.eval()
         eval_loss_list = []
         with torch.no_grad():
             for batch_idx, (source, target) in enumerate(self.eval_loader):
                 source, target = source.to(self.device), target.to(self.device)
-                output = self.R(self.GS(source))
+                output = self.D(self.GS(source))
                 output[:,0] = (output[:,0].clone().t() - output[:,0,0].clone()).t()
-                eval_loss = self.hausdorff(output, target).item()
+                eval_loss = self.weighted_hausdorff(output, target).item()
                 eval_loss_list.append(eval_loss)
 
         target_im = target.cpu().detach().numpy()
         output_im = output.cpu().detach().numpy()
+
+        #rir = self.reconstruct_rir(output_im)
+        #np.save('output_rir.npy', rir)
 
         plt.plot(output_im[0, 0, :], output_im[0, 1, :], '--x', linewidth=0.5, markersize=0.7)
         plt.plot(target_im[0, 0, :], target_im[0, 1, :], '--o', linewidth=0.5, markersize=0.7)
@@ -197,6 +203,14 @@ class Model:
         self.mean_eval_loss = np.mean(eval_loss_list)
         print(self.mean_eval_loss)
 
+    def reconstruct_rir(self, output):
+        time = output[0]*1024
+        peaks = -np.exp(output[1])/64
+        ir = np.zeros_like(time)
+        visibility = np.ones_like(peaks)
+        print(np.shape(time), np.shape(peaks), np.shape(ir), np.shape(visibility))
+        rir = fast_rir_builder(ir, time, peaks, visibility, 44100., 81.)
+        return rir
 
     def save_model(self):
         print(' '+'-'*64, '\nSaving\n', '-'*64)
@@ -210,20 +224,26 @@ class Model:
         torch.save(self.GR.state_dict(), model_full_path)
         torch.save(self.GR_optimizer.state_dict(), optimizer_full_path)
 
+        model_full_path = os.path.join(self.model_dir, '{}_D.pth'.format(str(self.epoch)))
+        optimizer_full_path = os.path.join(self.model_dir, '{}_Do.pth'.format(str(self.epoch)))
+        torch.save(self.D.state_dict(), model_full_path)
+        torch.save(self.D_optimizer.state_dict(), optimizer_full_path)
+
 
     def loss_to_file(self):
         with open('loss_over_epochs.csv', 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
-            writer.writerow([self.epoch, self.l1_mean_train_loss, self.l2_mean_train_loss, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+            writer.writerow([self.epoch, self.l1_mean_train_loss, self.l3_mean_train_loss, self.mean_eval_loss, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
 
 
     def generate_plot(self):
         frmt = "%Y-%m-%d %H:%M:%S"
         plot_data = pd.read_csv('loss_over_epochs.csv', header=None)
-        epochs_raw, train_losses_raw, eval_losses_raw, times_raw = plot_data.values.T
+        epochs_raw, train_l1_raw, train_l3_raw, eval_losses_raw, times_raw = plot_data.values.T
 
         epochs = [int(epoch) for epoch in list(epochs_raw) if is_number(epoch)]
-        train_losses = [float(loss) for loss in list(train_losses_raw) if is_number(loss)]
+        l1_train_losses = [float(loss) for loss in list(train_l1_raw) if is_number(loss)]
+        l3_train_losses = [float(loss) for loss in list(train_l3_raw) if is_number(loss)]
         eval_losses = [float(loss) for loss in list(eval_losses_raw) if is_number(loss)]
 
         if self.GS_args.save_timestamps:
@@ -237,28 +257,48 @@ class Model:
                 plt.title('Trained for {} hours and {:2d} minutes'.format(int(total_time.days/24 + total_time.seconds//3600), (total_time.seconds//60)%60))
         plt.xlabel('Epochs')
         plt.ylabel('Loss ({})'.format(self.GS_args.loss_function))
-        plt.semilogy(epochs, train_losses, label='Training Loss')
-        plt.semilogy(epochs, eval_losses, label='Evaluation Loss')
+        plt.semilogy(epochs, l1_train_losses, label='Abstract Train Loss')
+        plt.semilogy(epochs, l3_train_losses, label='Real Train Loss')
+        plt.semilogy(epochs, eval_losses, label='Real Eval Loss')
         plt.legend()
+        plt.grid(True, 'both')
         plt.savefig('loss_over_epochs.png')
         plt.close()
 
     def stop_session(self):
         with open('loss_over_epochs.csv', 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
-            writer.writerow(['stopped', 'stopped', 'stopped', datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+            writer.writerow(['stopped', 'stopped', 'stopped', 'stopped', datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
 
 
     def start_session(self):
         with open('loss_over_epochs.csv', 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
-            writer.writerow(['started', 'started', 'started', datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+            writer.writerow(['started', 'started', 'started', 'started', datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
 
     def hausdorff(self, output, target):
         res = 0
-        for i, _ in enumerate(output):
+        for i, sample in enumerate(output):
             x = output[i]
-            y = target[i]
+            y = target[i] 
+
+            n = x.size(0)
+            d = x.size(1)
+            x = x.expand(n,n,d)
+            y = y.expand(n,n,d)
+            dist = torch.pow(x - y, 2).sum(2)
+
+            mean_1 = torch.mean(torch.min(dist, 0)[0])
+            mean_2 = torch.mean(torch.min(dist, 1)[0])
+            res += mean_1 + mean_2
+        return res/100000
+
+    def weighted_hausdorff(self, output, target):
+        res = 0
+        weight = torch.tensor(np.logspace(2,0, output.size(-1))/50).cuda().float()
+        for i, sample in enumerate(output):
+            x = torch.cat((output[i][0].unsqueeze(0)*weight, output[i][1].unsqueeze(0)*weight), 0)
+            y = torch.cat((target[i][0].unsqueeze(0)*weight, target[i][1].unsqueeze(0)*weight), 0)
 
             n = x.size(0)
             d = x.size(1)
@@ -273,7 +313,6 @@ class Model:
 
 
 def main(model_dir):
-    # noinspection PyGlobalUndefined
     global interrupted
     interrupted = False
     signal.signal(signal.SIGINT, signal_handler)
@@ -283,17 +322,15 @@ def main(model_dir):
 
     for epoch in range(model.epoch, model.GS_args.epochs + 1):
         model.train()
-        #model.evaluate()
+        model.evaluate()
         model.epoch = epoch+1
         model.loss_to_file()
         model.generate_plot()
-        if epoch % model.G_args.save_interval == 0:
-            model.save_model()
 
         if interrupted:
             print(' '+'-'*64, '\nEarly stopping\n', '-'*64)
             model.stop_session()
-            #model.save_model()
+            model.save_model()
             break
 
 

@@ -20,7 +20,8 @@ class Net(nn.Module):
         self.conv7 = nn.Conv1d(16, 16, 5, stride=1, padding=2)
         self.conv8 = nn.Conv1d(16, 16, 5, stride=1, padding=2)
         self.conv9 = nn.Conv1d(16, 16, 1, stride=1, padding=0)
-        self.conv10 = nn.Conv1d(1, 1, 3, stride=1, padding=1)
+        self.conv10 = nn.Conv1d(2, 2, 5, stride=1, padding=2)
+        self.conv11 = nn.Conv1d(2, 2, 5, stride=1, padding=2)
         self.bn1 = nn.BatchNorm1d(16, affine=True)
         self.bn2 = nn.BatchNorm1d(16, affine=True)
         self.bn3 = nn.BatchNorm1d(16, affine=True)
@@ -30,31 +31,27 @@ class Net(nn.Module):
         self.bn7 = nn.BatchNorm1d(16, affine=True)
         self.bn8 = nn.BatchNorm1d(16, affine=True)
         self.bn9 = nn.BatchNorm1d(16, affine=True)
+        self.bn10 = nn.BatchNorm1d(2, affine=True)
         self.pool = nn.MaxPool1d(2)
         self.dropout = nn.Dropout(p=0.3)
-        self.map1 = nn.Linear(64, 2048)
+        self.map1 = nn.Linear(2048, 2048)
         self.map2 = nn.Linear(2048, 2048)
 
 
         # -------------  Forward Pass  ------------- #
     def forward(self, x):
         x = F.relu(self.bn1(self.conv1(x)))
-        x = self.pool(x)
         x = F.relu(self.bn2(self.conv2(x)))
         x = self.pool(x)
         x = F.relu(self.bn3(self.conv3(x)))
-        x = self.pool(x)
         x = F.relu(self.bn4(self.conv4(x)))
         x = self.pool(x)
         x = F.relu(self.bn5(self.conv5(x)))
         x = self.dropout(x)
-        x = self.pool(x)
         x = F.relu(self.bn6(self.conv6(x)))
         x = self.pool(x)
         x = F.relu(self.bn7(self.conv7(x)))
-        x = self.pool(x)
         x = F.relu(self.bn8(self.conv8(x)))
-        x = self.pool(x)
         x = F.relu(self.bn9(self.conv9(x)))
         p = x.size()
         (_, C, H) = x.data.size()
@@ -62,6 +59,8 @@ class Net(nn.Module):
         x = self.map1(x)
         x = self.map2(x)
         x = x.view(-1, 2, 1024)
+        x = F.relu(self.bn10(self.conv10(x)))
+        x = self.conv11(x)
         return x
 
 
@@ -74,7 +73,7 @@ class Net(nn.Module):
                             help='input batch size for testing (default: 1000)')
         parser.add_argument('--epochs', type=int, default=5000, metavar='N',
                             help='number of epochs to train (default: 10)')
-        parser.add_argument('--lr', type=float, default=0.1, metavar='LR',
+        parser.add_argument('--lr', type=float, default=0.05, metavar='LR',
                             help='learning rate (default: 0.005)')
         parser.add_argument('--momentum', type=float, default=0.1, metavar='M',
                             help='SGD momentum (default: 0.5)')

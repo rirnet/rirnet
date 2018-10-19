@@ -11,13 +11,13 @@ class Net(nn.Module):
         # -------------  Model Layers  ------------- #
     def __init__(self):
         super(Net, self).__init__()
-        self.conv1 = nn.Conv1d(2, 4, 5, stride=1, padding=2)
-        self.conv2 = nn.Conv1d(4, 16, 5, stride=1, padding=2)
+        self.conv1 = nn.Conv1d(2, 8, 5, stride=1, padding=2)
+        self.conv2 = nn.Conv1d(8, 16, 5, stride=1, padding=2)
         self.conv3 = nn.Conv1d(16, 32, 5, stride=1, padding=2)
         self.conv4 = nn.Conv1d(32, 16, 5, stride=1, padding=2)
         self.conv5 = nn.Conv1d(16, 4, 5, stride=1, padding=2)
         self.conv6 = nn.Conv1d(4, 2, 5, stride=1, padding=2)
-        self.bn1 = nn.BatchNorm1d(4, affine=True)
+        self.bn1 = nn.BatchNorm1d(8, affine=True)
         self.bn2 = nn.BatchNorm1d(16, affine=True)
         self.bn3 = nn.BatchNorm1d(32, affine=True)
         self.bn4 = nn.BatchNorm1d(16, affine=True)
@@ -38,22 +38,19 @@ class Net(nn.Module):
     def forward(self, x):
         x = F.relu(self.bn1(self.conv1(x)))
 
-
         x = self.pool(x)
 
         x = F.relu(self.bn2(self.conv2(x)))
-
         x = self.pool(x)
 
         x = F.relu(self.bn3(self.conv3(x)))
 
         p = x.size()
-        (_, C, H) = x.data.size()
-        x = x.view( -1 , C * H)
+        (_, C, W) = x.data.size()
+        x = x.view( -1 , C * W)
         x = self.map1(x)
-
         x = self.map2(x)
-        x = x.view(p)
+        x = x.view( -1 , C, W)
         x = F.relu(self.bnct4(self.ct4(x)))
 
         x = F.relu(self.bn4(self.conv4(x)))
@@ -63,10 +60,7 @@ class Net(nn.Module):
         x = F.relu(self.bn5(self.conv5(x)))
 
         #x = F.relu(self.bnct6(self.ct6(x)))
-
         x = self.conv6(x)
-
-
         return x
 
 

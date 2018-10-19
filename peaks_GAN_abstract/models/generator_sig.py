@@ -2,7 +2,7 @@ import argparse
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import transforms
-from rirnet.transforms import ToTensor, ToNormalized, ToNegativeLog
+from rirnet.transforms import ToTensor, ToNormalized, ToNegativeLog, ToUnitNorm
 import numpy as np
 
 # -------------  Network class  ------------- #
@@ -20,8 +20,8 @@ class Net(nn.Module):
         self.conv7 = nn.Conv2d(128, 128, 3, stride=1, padding=1)
         self.conv8 = nn.Conv2d(128, 256, 3, stride=1, padding=1)
         self.conv9 = nn.Conv2d(256, 512, 1, stride=1, padding=0)
-        self.conv10 = nn.Conv1d(2, 10, 51, stride=1, padding=25)
-        self.conv11 = nn.Conv1d(10, 2, 51, stride=1, padding=25)
+        self.conv10 = nn.Conv1d(2, 10, 5, stride=1, padding=2)
+        self.conv11 = nn.Conv1d(10, 2, 5, stride=1, padding=2)
         self.bn1 = nn.BatchNorm2d(128, affine=True)
         self.bn2 = nn.BatchNorm2d(128, affine=True)
         self.bn3 = nn.BatchNorm2d(128, affine=True)
@@ -75,7 +75,7 @@ class Net(nn.Module):
         parser.add_argument('--epochs', type=int, default=5000, metavar='N',
                             help='number of epochs to train (default: 10)')
         parser.add_argument('--lr', type=float, default=0.05, metavar='LR',
-                            help='learning rate (default: 0.005)')
+                            help='learning rate (default: 0.05)')
         parser.add_argument('--momentum', type=float, default=0.1, metavar='M',
                             help='SGD momentum (default: 0.5)')
         parser.add_argument('--no-cuda', action='store_true', default=False,
@@ -106,5 +106,5 @@ class Net(nn.Module):
         return data_transform
 
     def target_transform(self):
-        target_transform = transforms.Compose([ToNegativeLog(), ToTensor()])
+        target_transform = transforms.Compose([ToNegativeLog(), ToUnitNorm(), ToTensor()])
         return target_transform

@@ -27,3 +27,13 @@ class ToNegativeLog(object):
 
     def __call__(self, sample):
         return np.array([sample[0]/1024, -np.log(sample[1])])
+
+
+class ToUnitNorm(object):
+    """Normalization for peaks data"""
+
+    def __call__(self, sample):
+        data = sample[1]
+        data -= np.min(data)
+        data /= np.max(data)
+        return np.array([sample[0], data*64])
