@@ -109,14 +109,14 @@ class Model:
             ##Forward and update GS
             abs_gen_rir = self.GS(source)
             abs_real_rir = self.GR(target).detach()
-            l1 = self.hausdorff(abs_gen_rir, abs_real_rir)
+            l1 = self.q_hausdorff(abs_gen_rir, abs_real_rir)
             l1.backward(retain_graph = True)
             self.GS_optimizer.step()
 
             ##Forward and update GR
             abs_real_rir = self.GR(target)
             abs_gen_rir = self.GS(source).detach()
-            l2 = self.hausdorff(abs_real_rir, abs_gen_rir)
+            l2 = self.q_hausdorff(abs_real_rir, abs_gen_rir)
             l2.backward(retain_graph = True)
             self.GR_optimizer.step()
 
@@ -127,13 +127,13 @@ class Model:
             ##Forward through GS, GR and D, update all
             abs_gen_rir = self.GS(source)
             abs_real_rir = self.GR(target)
-            l = self.hausdorff(abs_gen_rir, abs_real_rir)
+            l = self.q_hausdorff(abs_gen_rir, abs_real_rir)
             #if batch_idx%2 == 0:
             gen_rir = self.D(abs_gen_rir)
             #else:
             #    gen_rir = self.D(abs_real_rir)
             gen_rir[:,0] = (gen_rir[:,0].clone().t() - gen_rir[:,0,0].clone()).t()
-            l3 = self.weighted_hausdorff(gen_rir, target)
+            l3 = self.q_hausdorff(gen_rir, target)
             l.backward(retain_graph = True)
             l3.backward()
 
@@ -185,7 +185,7 @@ class Model:
                 source, target = source.to(self.device), target.to(self.device)
                 output = self.D(self.GS(source))
                 output[:,0] = (output[:,0].clone().t() - output[:,0,0].clone()).t()
-                eval_loss = self.weighted_hausdorff(output, target).item()
+                eval_loss = self.q_hausdorff(output, target).item()
                 eval_loss_list.append(eval_loss)
 
         target_im = target.cpu().detach().numpy()
@@ -280,10 +280,10 @@ class Model:
         res = 0
         for i, sample in enumerate(output):
             x = output[i]
-            y = target[i] 
+            y = target[i]
 
-            n = x.size(0)
-            d = x.size(1)
+            n = x.size(1)
+            d = x.size(0)
             x = x.expand(n,n,d)
             y = y.expand(n,n,d)
             dist = torch.pow(x - y, 2).sum(2)
@@ -293,10 +293,26 @@ class Model:
             res += mean_1 + mean_2
         return res/100000
 
+    def q_hausdorff(self, output, target):
+        res = 0
+        for i, sample in enumerate(output):
+            x = output[i].t()
+            y = target[i].t()
+
+            x_norm = (x**2).sum(1).view(-1,1)
+            y_norm = (y**2).sum(1).view(1,-1)
+
+            dist = x_norm+y_norm-2*torch.mm(x, torch.transpose(y,0,1))
+
+            mean_1 = torch.mean(torch.min(dist, 0)[0])
+            mean_2 = torch.mean(torch.min(dist, 1)[0])
+            res += mean_1 + mean_2
+        return res/100000
+
     def weighted_hausdorff(self, output, target):
         res = 0
         weight = torch.tensor(np.logspace(2,0, output.size(-1))/50).cuda().float()
-        for i, sample in enumerate(output):
+        for i, _ in enumerate(output):
             x = torch.cat((output[i][0].unsqueeze(0)*weight, output[i][1].unsqueeze(0)*weight), 0)
             y = torch.cat((target[i][0].unsqueeze(0)*weight, target[i][1].unsqueeze(0)*weight), 0)
 
