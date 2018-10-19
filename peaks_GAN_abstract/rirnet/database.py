@@ -81,15 +81,16 @@ class RirGenerator:
                     peaks = [times, alphas]
 
                 ###### sorting along x-direction
-#                peaks_1 = sorted(zip(peaks[0], peaks[1]), key = operator.itemgetter(0))
-#                x1, y1 = zip(*peaks_1)
+                #peaks_1 = sorted(zip(peaks[0], peaks[1]), key = operator.itemgetter(0))
+                #x1, y1 = zip(*peaks_1)
+                #peaks = [x1, y1]
 
                 ###### sorting along y-direction
 #                peaks_2 = sorted(zip(peaks[0], peaks[1]), key = operator.itemgetter(1))
 #                x2, y2 = zip(*peaks_2)
 
                 ###### using the y-direction sorting
-#                peaks = [x2, y2]
+#                peaks = [x1, y1]
                 ###### nearest-neighbour sorting is also a possibility
                 #s = 10000
                 #zip_peaks = [[a/s,np.log(b)] for a,b in zip(peaks[0], peaks[1])]
@@ -130,16 +131,19 @@ class RirGenerator:
             slice = tuple(np.where(room.visibility[0][m] == 1))
             alphas = alphas[slice]
             times = times[slice]
-            orders = room.sources[0].orders[slice]
 
-            ordered_inds = []
-            for order in range(min(orders), max(orders)):
-                order_inds = np.where(orders == order)[0]
-                time_inds = np.argsort(times[order_inds])
-                for ind in order_inds[time_inds]:
-                    ordered_inds.append(ind)
+            if self.db_setup['order_sorting']:
+                orders = room.sources[0].orders[slice]
 
-            peaks.append([times[ordered_inds] - min(times[ordered_inds]), alphas[ordered_inds]])
+                ordered_inds = []
+                for order in range(min(orders), max(orders)):
+                    order_inds = np.where(orders == order)[0]
+                    time_inds = np.argsort(times[order_inds])
+                    for ind in order_inds[time_inds]:
+                        ordered_inds.append(ind)
+                    peaks.append([times[ordered_inds] - min(times[ordered_inds]), alphas[ordered_inds]])
+            else:
+                peaks.append([times - min(times), alphas])
         return peaks
 
 
