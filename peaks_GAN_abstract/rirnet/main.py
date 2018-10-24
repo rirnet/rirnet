@@ -15,8 +15,7 @@ import numpy as np
 from importlib import import_module
 from glob import glob
 import signal
-from pyroomacoustics.build_rir import fast_rir_builder
-
+from pyroomacoustics.utilities import fractional_delay
 
 # -------------  Initialization  ------------- #
 class Model:
@@ -109,14 +108,14 @@ class Model:
             ##Forward and update GS
             abs_gen_rir = self.GS(source)
             abs_real_rir = self.GR(target).detach()
-            l1 = self.q_hausdorff(abs_gen_rir, abs_real_rir)
+            l1 = self.hausdorff(abs_gen_rir, abs_real_rir)
             l1.backward(retain_graph = True)
             self.GS_optimizer.step()
 
             ##Forward and update GR
             abs_real_rir = self.GR(target)
             abs_gen_rir = self.GS(source).detach()
-            l2 = self.q_hausdorff(abs_real_rir, abs_gen_rir)
+            l2 = self.hausdorff(abs_real_rir, abs_gen_rir)
             l2.backward(retain_graph = True)
             self.GR_optimizer.step()
 
@@ -127,13 +126,13 @@ class Model:
             ##Forward through GS, GR and D, update all
             abs_gen_rir = self.GS(source)
             abs_real_rir = self.GR(target)
-            l = self.q_hausdorff(abs_gen_rir, abs_real_rir)
+            l = self.hausdorff(abs_gen_rir, abs_real_rir)
             #if batch_idx%2 == 0:
             gen_rir = self.D(abs_gen_rir)
             #else:
             #    gen_rir = self.D(abs_real_rir)
-            gen_rir[:,0] = (gen_rir[:,0].clone().t() - gen_rir[:,0,0].clone()).t()
-            l3 = self.q_hausdorff(gen_rir, target)
+            #gen_rir[:,0] = (gen_rir[:,0].clone().t() - gen_rir[:,0,0].clone()).t()
+            l3 = self.hausdorff(gen_rir, target)
             l.backward(retain_graph = True)
             l3.backward()
 
@@ -160,16 +159,16 @@ class Model:
         abs_gen_rir_im = abs_gen_rir.cpu().detach().numpy()
         abs_real_rir_im = abs_real_rir.cpu().detach().numpy()
 
-        plt.plot(output_im[0, 0, :], output_im[0, 1, :], '--x', linewidth=0.5, markersize=0.7, label='gen_rir')
-        plt.plot(target_im[0, 0, :], target_im[0, 1, :], '--o', linewidth=0.5, markersize=0.7, label='target')
+        plt.plot(output_im[0, 0, :], output_im[0, 1, :], 'x', linewidth=0.5, markersize=1., label='gen_rir')
+        plt.plot(target_im[0, 0, :], target_im[0, 1, :], 'o', linewidth=0.5, markersize=1., label='target')
         plt.title('train')
         plt.grid(True)
         plt.legend()
         plt.savefig('example_output_train.png')
         plt.close()
 
-        plt.plot(abs_gen_rir_im[0, 0, :], abs_gen_rir_im[0, 1, :], '--x', linewidth=0.5, markersize=0.7, label='gen_abs')
-        plt.plot(abs_real_rir_im[0, 0, :], abs_real_rir_im[0, 1, :], '--o', linewidth=0.5, markersize=0.7, label='real_abs')
+        plt.plot(abs_gen_rir_im[0, 0, :], abs_gen_rir_im[0, 1, :], 'x', linewidth=0.5, markersize=1., label='gen_abs')
+        plt.plot(abs_real_rir_im[0, 0, :], abs_real_rir_im[0, 1, :], 'o', linewidth=0.5, markersize=1., label='real_abs')
         plt.title('train')
         plt.grid(True)
         plt.legend()
@@ -184,18 +183,20 @@ class Model:
             for batch_idx, (source, target) in enumerate(self.eval_loader):
                 source, target = source.to(self.device), target.to(self.device)
                 output = self.D(self.GS(source))
-                output[:,0] = (output[:,0].clone().t() - output[:,0,0].clone()).t()
-                eval_loss = self.q_hausdorff(output, target).item()
+                #output[:,0] = (output[:,0].clone().t() - output[:,0,0].clone()).t()
+                eval_loss = self.hausdorff(output, target).item()
                 eval_loss_list.append(eval_loss)
 
         target_im = target.cpu().detach().numpy()
         output_im = output.cpu().detach().numpy()
 
-        #rir = self.reconstruct_rir(output_im)
-        #np.save('output_rir.npy', rir)
+        rir = self.reconstruct_rir(output_im)
+        plt.plot(rir)
+        plt.savefig('output_rir.png')
+        plt.close()
 
-        plt.plot(output_im[0, 0, :], output_im[0, 1, :], '--x', linewidth=0.5, markersize=0.7)
-        plt.plot(target_im[0, 0, :], target_im[0, 1, :], '--o', linewidth=0.5, markersize=0.7)
+        plt.plot(output_im[0, 0, :], output_im[0, 1, :], 'x', linewidth=0.5, markersize=0.9)
+        plt.plot(target_im[0, 0, :], target_im[0, 1, :], 'o', linewidth=0.5, markersize=0.9)
         plt.title('eval')
         plt.grid(True)
         plt.savefig('example_output.png')
@@ -204,13 +205,18 @@ class Model:
         print(self.mean_eval_loss)
 
     def reconstruct_rir(self, output):
-        time = output[0]*1024
-        peaks = -np.exp(output[1])/64
-        ir = np.zeros_like(time)
-        visibility = np.ones_like(peaks)
-        print(np.shape(time), np.shape(peaks), np.shape(ir), np.shape(visibility))
-        rir = fast_rir_builder(ir, time, peaks, visibility, 44100., 81.)
-        return rir
+        fdl = 81
+        fdl2 = (fdl-1) // 2
+        time = output[0,0,:].astype('double')*1024
+        time += fdl - min(time)
+        peaks = np.exp(-output[0,1,:]/16).astype('double')
+        peaks -= min(peaks)
+        ir = np.arange(np.ceil((1.05*time.max()) + fdl))*0
+        for i in range(time.shape[0]):
+            time_ip = int(np.round(time[i]))
+            time_fp = time[i] - time_ip
+            ir[time_ip-fdl2:time_ip+fdl2+1] += peaks[i]*fractional_delay(time_fp)
+        return ir/np.max(ir)
 
     def save_model(self):
         print(' '+'-'*64, '\nSaving\n', '-'*64)
@@ -279,19 +285,18 @@ class Model:
     def hausdorff(self, output, target):
         res = 0
         for i, sample in enumerate(output):
-            x = output[i]
-            y = target[i]
+            x = output[i].t()
+            y = target[i].t()
 
-            n = x.size(1)
-            d = x.size(0)
+            n = x.size(0)
+            d = x.size(1)
             x = x.expand(n,n,d)
             y = y.expand(n,n,d)
             dist = torch.pow(x - y, 2).sum(2)
-
             mean_1 = torch.mean(torch.min(dist, 0)[0])
             mean_2 = torch.mean(torch.min(dist, 1)[0])
             res += mean_1 + mean_2
-        return res/100000
+        return res/100
 
     def q_hausdorff(self, output, target):
         res = 0
@@ -307,25 +312,7 @@ class Model:
             mean_1 = torch.mean(torch.min(dist, 0)[0])
             mean_2 = torch.mean(torch.min(dist, 1)[0])
             res += mean_1 + mean_2
-        return res/100000
-
-    def weighted_hausdorff(self, output, target):
-        res = 0
-        weight = torch.tensor(np.logspace(2,0, output.size(-1))/50).cuda().float()
-        for i, _ in enumerate(output):
-            x = torch.cat((output[i][0].unsqueeze(0)*weight, output[i][1].unsqueeze(0)*weight), 0)
-            y = torch.cat((target[i][0].unsqueeze(0)*weight, target[i][1].unsqueeze(0)*weight), 0)
-
-            n = x.size(0)
-            d = x.size(1)
-            x = x.expand(n,n,d)
-            y = y.expand(n,n,d)
-            dist = torch.pow(x - y, 2).sum(2)
-
-            mean_1 = torch.mean(torch.min(dist, 0)[0])
-            mean_2 = torch.mean(torch.min(dist, 1)[0])
-            res += mean_1 + mean_2
-        return res/100000
+        return res/100
 
 
 def main(model_dir):

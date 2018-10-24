@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from torchvision import transforms
 from rirnet.transforms import ToTensor, ToNormalized, ToNegativeLog
 import numpy as np
+import torch
 
 # -------------  Network class  ------------- #
 class Net(nn.Module):
@@ -27,7 +28,7 @@ class Net(nn.Module):
         self.bnct6 = nn.BatchNorm1d(4, affine=True)
         self.pool = nn.MaxPool1d(2)
         self.ct4 = nn.ConvTranspose1d(32, 32, 4, stride=2, padding = 1)
-        self.ct5 = nn.ConvTranspose1d(16, 16, 4, stride=2, padding = 1)
+        self.ct5 = nn.ConvTranspose1d(32, 16, 4, stride=2, padding = 1)
         self.ct6 = nn.ConvTranspose1d(4, 4, 4, stride=2, padding = 1)
         self.dropout = nn.Dropout(p=0.3)
         self.map1 = nn.Linear(8192, 8192)
@@ -44,7 +45,7 @@ class Net(nn.Module):
         x = self.pool(x)
 
         x = F.relu(self.bn3(self.conv3(x)))
-
+        x = self.dropout(x)
         p = x.size()
         (_, C, W) = x.data.size()
         x = x.view( -1 , C * W)
@@ -53,14 +54,16 @@ class Net(nn.Module):
         x = x.view( -1 , C, W)
         x = F.relu(self.bnct4(self.ct4(x)))
 
-        x = F.relu(self.bn4(self.conv4(x)))
-
+        x = self.bn4(self.conv4(x))
+        x1 = F.relu(x)
+        x2 = F.tanh(x)
+        x = torch.cat((x1,x2), 1)
         x = F.relu(self.bnct5(self.ct5(x)))
 
         x = F.relu(self.bn5(self.conv5(x)))
 
         #x = F.relu(self.bnct6(self.ct6(x)))
-        x = self.conv6(x)
+        x = F.relu(self.conv6(x))
         return x
 
 
