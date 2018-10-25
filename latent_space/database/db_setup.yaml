@@ -4,7 +4,7 @@ side: [6, 20]
 height: [2, 4]
 fs: 44100
 max_order: 8
-absorption: [0.1, 0.9]
+absorption: [0.3, 0.6]
 n_mfcc: 40
 n_fft: 2048
 hop_length: 512
