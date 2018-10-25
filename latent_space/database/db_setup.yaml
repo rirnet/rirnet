@@ -1,9 +1,9 @@
-n_samples: 1000
+n_samples: 50
 n_mics: 10
 side: [6, 20]
 height: [2, 4]
 fs: 44100
-max_order: 8
+max_order: 5
 absorption: [0.3, 0.6]
 n_mfcc: 40
 n_fft: 2048

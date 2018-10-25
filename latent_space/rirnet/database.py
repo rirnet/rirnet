@@ -103,12 +103,15 @@ class RirGenerator:
                 info_list.append([room.corners, room.absorption, room.mic_array.R[:, i_rir], room.sources[0].position])
 
                 i_produced += 1
-                if self.i_total + i_produced == self.n_total or interrupted:
+                if self.i_total + i_produced == self.n_total:
                     for process in self.processes:
                         process.terminate()
-                    print('Stopped processes')
-                    sys.exit()
                     break
+                if interrupted:
+                    for process in self.processes:
+                        process.terminate()
+                    print('Terminated processes')
+                    sys.exit()
         self.i_total += i_produced
         return h_list, peaks_list, info_list
 
@@ -334,7 +337,6 @@ def build_db(root):
 
 
 def signal_handler(signal, frame):
-    print(' '+'-'*10, '\nTerminating\n', '-'*10)
     global interrupted
     interrupted = True
 
