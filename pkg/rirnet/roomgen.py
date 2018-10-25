@@ -17,8 +17,9 @@ def generate_from_dict(db_setup):
 def generate(min_side, max_side, min_height, max_height, n_mics, fs=16000, max_order=2, min_abs=0.1, max_abs=0.9):
     np.random.seed()
     floor_shape = generate_floor_shape(min_side, max_side)
+    n_walls = len(floor_shape.boundary.xy[0])-1
     height = np.random.uniform(min_height, max_height)
-    absorption = np.random.uniform(min_abs, max_abs)
+    absorption = np.random.rand(n_walls, 1)*(max_abs-min_abs)+min_abs
     vertices = floor_shape.exterior.coords
     x_coords = vertices.xy[0][:-1]
     y_coords = vertices.xy[1][:-1]

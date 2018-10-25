@@ -14,6 +14,8 @@ import glob
 import librosa
 import matplotlib.pyplot as plt
 import operator
+import signal
+import sys
 from scipy.spatial.distance import cdist as cdist
 
 db_setup_filename = 'db_setup.yaml'
@@ -101,9 +103,11 @@ class RirGenerator:
                 info_list.append([room.corners, room.absorption, room.mic_array.R[:, i_rir], room.sources[0].position])
 
                 i_produced += 1
-                if self.i_total + i_produced == self.n_total:
+                if self.i_total + i_produced == self.n_total or interrupted:
                     for process in self.processes:
                         process.terminate()
+                    print('Stopped processes')
+                    sys.exit()
                     break
         self.i_total += i_produced
         return h_list, peaks_list, info_list
@@ -328,5 +332,15 @@ def build_db(root):
     #save_mean_std(db_csv_path, db_target_mean, 'target')
     print('Done')
 
+
+def signal_handler(signal, frame):
+    print(' '+'-'*10, '\nTerminating\n', '-'*10)
+    global interrupted
+    interrupted = True
+
 if __name__ == "__main__":
+    global interrupted
+    interrupted = False
+    signal.signal(signal.SIGINT, signal_handler)
+
     build_db(db_rel_path)
