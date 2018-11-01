@@ -70,7 +70,6 @@ class Model:
                 g['momentum'] = self.discriminator_args.momentum
 
         self.epoch = epoch
-        self.csv_path = os.path.join(self.extractor_args.db_path, 'db.csv')
         data_transform = self.extractor.data_transform()
         target_transform = self.extractor.target_transform()
 
@@ -96,7 +95,7 @@ class Model:
             g['lr'] = g['lr']*0.95
             plt.title(g['lr'])
 
-        if self.epoch%120 == 0:
+        if self.epoch%50 == 0:
             for g in self.extractor_optimizer.param_groups:
                 g['lr'] = self.extractor_args.lr
                 plt.title(g['lr'])
@@ -105,55 +104,25 @@ class Model:
         extractor_loss_list = []
         extractor_loss_D_list = []
         for batch_idx, (source, target) in enumerate(self.train_loader):
-            ### data to GPU
+            torch.cuda.empty_cache()
             source, target = source.to(self.device), target.to(self.device)
 
-            ### zero the gradients before new batch
-            self.discriminator_optimizer.zero_grad()
-
-            ### push target to latent space
-            with torch.no_grad():
-                latent_target = self.autoenc(target, encode=True, decode=False)
-                latent_source = self.extractor(source)
-
-############### GAN-training: push latent target/source to verdict space #####
-            latent_target_verdict = self.discriminator(latent_target) #train -> 1
-            disc_loss_target = getattr(F, self.discriminator_args.loss_function)(latent_target_verdict, torch.ones(self.discriminator_args.batch_size, 1).float().cuda())
-            disc_loss_target.backward(retain_graph=True)
-
-            latent_source_verdict = self.discriminator(latent_source) #train -> 0
-            disc_loss_source = getattr(F, self.discriminator_args.loss_function)(latent_source_verdict, torch.zeros(self.discriminator_args.batch_size, 1).float().cuda())
-            disc_loss_source.backward(retain_graph=True)
-
-            self.discriminator_optimizer.step()
-##############################################################################
-
-            self.extractor_optimizer.zero_grad()
-            ### push target to latent space
-            with torch.no_grad():
-                latent_target = self.autoenc(target, encode=True, decode=False)
-
-            ### push signal to latent space
+            latent_target = self.autoenc(target, encode=True, decode=False)
             latent_source = self.extractor(source)
+            self.extractor_optimizer.zero_grad()
+            extractor_loss = self.mse_weighted(latent_source, latent_target, 1)
+            extractor_loss.backward(retain_graph=True)
 
-            ### loss in latent space
-            latent_source_verdict = self.discriminator(self.extractor(source))
-            extractor_loss_D = getattr(F, self.discriminator_args.loss_function)(latent_source_verdict, torch.ones(self.discriminator_args.batch_size, 1).float().cuda())*0.001
-            extractor_loss_D.backward(retain_graph=True)
-            extractor_loss = getattr(F, self.extractor_args.loss_function)(latent_source, latent_target)
-            extractor_loss.backward()
-            self.extractor_optimizer.step()
-
-            ### push latent signal to output RIR
             output = self.autoenc(latent_source, encode=False, decode=True)
-            extractor_loss_D_list.append(extractor_loss_D.item())
-            extractor_loss_list.append(extractor_loss.item())
+            extractor_loss_output = self.hausdorff(output, target)
+            extractor_loss_output.backward()
+            self.extractor_optimizer.step()
+            extractor_loss_list.append(extractor_loss_output.item())
 
             if batch_idx % self.extractor_args.log_interval == 0:
                 print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLoss: {:.6f}, {:.6f}'.format(
                     self.epoch + 1, batch_idx * len(source), len(self.train_loader.dataset),
-                    100. * batch_idx / len(self.train_loader), extractor_loss.item(), extractor_loss_D.item()))
-        #print(disc_loss_target, disc_loss_source)
+                    100. * batch_idx / len(self.train_loader), extractor_loss.item(), extractor_loss_output.item()))
         self.extractor_mean_train_loss = np.mean(extractor_loss_list)
 
         self.latent_target_im_train = latent_target.cpu().detach().numpy()[0]
@@ -164,24 +133,30 @@ class Model:
         eval_loss_list = []
         with torch.no_grad():
             for batch_idx, (source, target) in enumerate(self.eval_loader):
+                torch.cuda.empty_cache()
                 source, target = source.to(self.device), target.to(self.device)
 
                 latent_target = self.autoenc(target, encode=True, decode=False)
-                latent_output = self.extractor(source)
-                eval_loss = getattr(F, self.extractor_args.loss_function)(latent_output, latent_target).item()
-                eval_loss_list.append(eval_loss)
-                output = self.autoenc(latent_output, encode=False, decode=True)
+                latent_source = self.extractor(source)
+                self.extractor_optimizer.zero_grad()
+                output = self.autoenc(latent_source, encode=False, decode=True)
+                extractor_loss = self.hausdorff(output, target)
+
+                self.rir_im = []
+                self.extractor_optimizer.step()
+                eval_loss_list.append(extractor_loss.item())
         self.latent_target_im_eval = latent_target.cpu().detach().numpy()[0]
-        self.latent_output_im_eval = latent_output.cpu().detach().numpy()[0]
+        self.latent_output_im_eval = latent_source.cpu().detach().numpy()[0]
 
         self.target_im = target.cpu().detach().numpy()[0].T
         self.output_im = output.cpu().detach().numpy()[0].T
 
-        self.rir_im = []
-        #self.rir_im = self.reconstruct_rir(self.output_im)
-
         self.mean_eval_loss = np.mean(eval_loss_list)
         print(self.mean_eval_loss)
+
+
+    def mse_weighted(self, output, target, weight):
+        return torch.sum(weight * (output - target)**2)/output.numel()
 
     def hausdorff(self, output, target):
         res = 0
@@ -335,3 +310,4 @@ def is_number(s):
 
 if __name__ == '__main__':
     main(sys.argv[1])
+

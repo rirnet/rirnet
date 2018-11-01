@@ -144,8 +144,8 @@ code={% #1=color, #2=x1, #3=y1, #4=edge style #5=x2,#6=y2, #7=label
   	\draw[->, looseness=1.5, dashed](err2.south) to [out=270,in=270] (disc.south);
  	\draw[-, looseness=1.9]([yshift=-0.5cm, xshift=0.25cm]err.east) to [out=55,in=180] (disc.west);
 	\draw[->, looseness=1.5](disc.east) to [out=0, in=180] node {} ([yshift=-0.5cm]err2.west);
- 	\draw[-, dotted, rounded corners=2mm]([xshift=-0.6cm]disc.west) -- ([yshift=1cm, xshift=-0.6cm]disc.west) -- ([yshift=1cm, xshift=0.3cm]disc.west);
- 	\draw[->, dotted, looseness=2]([yshift=1cm, xshift=0.3cm]disc.west) to [out=0, in=180] ([yshift=0.5cm]err2.west);
+ 	\draw[-, dotted, rounded corners=2mm]([xshift=-0.6cm]disc.west) -- ([yshift=1cm, xshift=-0.6cm]disc.west) -- ([yshift=1cm]disc.east);
+ 	\draw[->, dotted, looseness=1.5]([yshift=1cm]disc.east) to [out=0, in=180] ([yshift=0.5cm]err2.west);
  	\draw[->, looseness=1.3, dashed](disc.east) to [out=-20, in=270] node {} (nn.south);
  	
  	

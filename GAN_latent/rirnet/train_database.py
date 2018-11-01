@@ -22,20 +22,20 @@ from sklearn.utils import shuffle
 db_setup_filename = 'db_setup.yaml'
 db_mean_filename = 'mean.npy'
 db_std_filename = 'std.npy'
-db_csv_filename = 'db-val.csv'
-audio_rel_path = '../../audio/chamber/val'
+db_csv_filename = 'db-train.csv'
+audio_rel_path = '../../audio/chamber/train'
 db_rel_path = '../database'
-data_folder = 'val_data'
+data_folder = 'train_data'
 header=['data_path', 'target_path', 'room_corners', 'room_absorption', 'room_mics', 'room_source']
 
 
 class RirGenerator:
     def __init__(self, db_setup):
         self.i_total = 0
-        self.n_total = db_setup['n_samples']
+        self.n_total = db_setup['n_samples_train']
         self.db_setup = db_setup
         self.h_length = None
-        self.peaks_length = None
+        self.peaks_length = 1024
         self.discarded = 0
         self.output = mp.Queue()
         self.processes = [mp.Process(target=self.compute_room_proc) for x in range(db_setup['n_proc'])]
@@ -330,7 +330,7 @@ def build_db(root):
                 print('Started building db with data of size {} and peaks of size {}'.format(np.shape(data_list[0]), np.shape(peaks_list[0])))
             #print('Progress: {:5.01f}%, Discarded {} times.'.format(counter, rir_generator.discarded), end="\r")
 
-            n = db_setup['n_samples']
+            n = db_setup['n_samples_train']
             db_data_mean += np.sum(data_list, axis=(0, 3))/(n*np.shape(data_list)[-1])
             db_target_mean += np.sum(target_list, axis=0)/n
 

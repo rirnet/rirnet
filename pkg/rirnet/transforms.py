@@ -35,5 +35,4 @@ class ToUnitNorm(object):
     def __call__(self, sample):
         data = sample[1]
         data -= np.min(data)
-        data /= np.max(data)
-        return np.array([sample[0], data*64])
+        return np.array([sample[0], data])

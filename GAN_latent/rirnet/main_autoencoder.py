@@ -73,10 +73,10 @@ class Model:
     def train(self):
 
         for g in self.autoenc_optimizer.param_groups:
-            g['lr'] = g['lr']*0.95
+            g['lr'] = g['lr']*0.99
             plt.title(g['lr'])
 
-        if self.epoch%120 == 0:
+        if self.epoch%50 == 0:
             for g in self.autoenc_optimizer.param_groups:
                 g['lr'] = self.autoenc_args.lr
                 plt.title(g['lr'])
@@ -85,17 +85,19 @@ class Model:
         autoenc_loss_list = []
         autoenc_loss_h_list = []
         for batch_idx, (source, target) in enumerate(self.train_loader):
-            source, target = source.to(self.device), target.to(self.device)
+            torch.cuda.empty_cache()
             self.autoenc_optimizer.zero_grad()
+            source, target = source.to(self.device), target.to(self.device)
             output = self.autoenc(target, encode=True, decode=True)
 
-            #x = torch.linspace(-2,2,924).unsqueeze(0)
-            #slope = ((-(torch.exp(2*x)-1)/(torch.exp(2*x)+1)*0.25)+0.75)
-            #weight = torch.cat(( torch.ones(1,100), slope), 1)
-            #weight = weight.unsqueeze(0).repeat(100,2,1).cuda()
-            #autoenc_loss = self.mse_weighted(output, target, weight)
+            x = torch.linspace(-2,2,924).unsqueeze(0)
+            slope = ((-(torch.exp(2*x)-1)/(torch.exp(2*x)+1)*0.25))
+            slope = slope +(1 - slope[0,0])
+            weight = torch.cat(( torch.ones(1,100), slope), 1)
+            weight = weight.unsqueeze(0).repeat(100,2,1).cuda()
+            autoenc_loss = self.mse_weighted(output, target, weight)
 
-            autoenc_loss = getattr(F, self.autoenc_args.loss_function)(output[:,:,:], target[:,:,:])
+            #autoenc_loss = getattr(F, self.autoenc_args.loss_function)(output[:,:,:], target[:,:,:])
             autoenc_loss_h = self.hausdorff(output[:,:,:], target[:,:,:])
             autoenc_loss_h.backward(retain_graph=True)
             autoenc_loss.backward()

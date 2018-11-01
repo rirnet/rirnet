@@ -32,10 +32,10 @@ header=['data_path', 'target_path', 'room_corners', 'room_absorption', 'room_mic
 class RirGenerator:
     def __init__(self, db_setup):
         self.i_total = 0
-        self.n_total = db_setup['n_samples']
+        self.n_total = db_setup['n_samples_val']
         self.db_setup = db_setup
         self.h_length = None
-        self.peaks_length = None
+        self.peaks_length = 1024
         self.discarded = 0
         self.output = mp.Queue()
         self.processes = [mp.Process(target=self.compute_room_proc) for x in range(db_setup['n_proc'])]
@@ -82,39 +82,6 @@ class RirGenerator:
                     times = au.pad_to(peaks[0], self.peaks_length, np.max(peaks[0]))
                     alphas = au.pad_to(peaks[1], self.peaks_length, np.min(peaks[1]))
                     peaks = [times, alphas]
-
-                ###### sorting along x-direction
-                #peaks_1 = sorted(zip(peaks[0], peaks[1]), key = operator.itemgetter(0))
-                #x1, y1 = zip(*peaks_1)
-                #peaks = [x1, y1]
-
-                ###### sorting along y-direction
-                #peaks_2 = sorted(zip(peaks[0], peaks[1]), key = operator.itemgetter(1))
-                #x2, y2 = zip(*peaks_2)
-                #peaks = [x1, y1]
-
-                ###### using the y-direction sorting
-#                peaks = [x1, y1]
-                ###### nearest-neighbour sorting is also a possibility
-                #s = 10000
-                #zip_peaks = [[a/s,np.log(b)] for a,b in zip(peaks[0], peaks[1])]
-                #path = NN(cdist(zip_peaks, zip_peaks))
-                #peaks = [peaks[0][path], peaks[1][path]]
-
-                ###### shuffle
-                #peaks = shuffle(peaks[0], peaks[1])
-
-                #inds = range(self.peaks_length)
-                #inds = shuffle(inds)
-                #inds = np.reshape(inds, (self.peaks_length//16, 16))
-                #inds = [np.sort(ind) for ind in inds]
-
-                #times = [times[ind] for ind in inds]
-                #alphas = [alphas[ind] for ind in inds]
-                #peaks = [times, alphas]
-
-                #plt.plot(peaks[0], -np.log(peaks[1]))
-                #plt.show()
 
                 peaks_list.append(peaks)
                 info_list.append([room.corners, room.absorption, room.mic_array.R[:, i_rir], room.sources[0].position])
@@ -330,7 +297,7 @@ def build_db(root):
                 print('Started building db with data of size {} and peaks of size {}'.format(np.shape(data_list[0]), np.shape(peaks_list[0])))
             #print('Progress: {:5.01f}%, Discarded {} times.'.format(counter, rir_generator.discarded), end="\r")
 
-            n = db_setup['n_samples']
+            n = db_setup['n_samples_val']
             db_data_mean += np.sum(data_list, axis=(0, 3))/(n*np.shape(data_list)[-1])
             db_target_mean += np.sum(target_list, axis=0)/n
 

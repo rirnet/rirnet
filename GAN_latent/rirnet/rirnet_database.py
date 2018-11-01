@@ -17,21 +17,25 @@ class RirnetDatabase(Dataset):
             transform (callable, optional): Optional transform to be applied
                 on a sample.
         """
-        csv_file = os.path.join(args.db_path, 'db.csv')
-        database = pd.read_csv(csv_file)
-        n_total = len(database)
-        indices = np.arange(n_total)
-        np.random.seed(args.seed)
-        np.random.shuffle(indices)
+        #csv_file = os.path.join(args.db_path, 'db.csv')
 
         if is_training:
-            positions = np.arange(int(np.floor(n_total * args.db_ratio)))
+            csv_file = os.path.join(args.db_path, 'db-train.csv')
+            self.root_dir = os.path.join(args.db_path, 'train_data')
+            #positions = np.arange(int(np.floor(n_total * args.db_ratio)))
         else:
-            positions = np.arange(int(np.ceil(n_total * args.db_ratio)), n_total)
+            csv_file = os.path.join(args.db_path, 'db-val.csv')
+            self.root_dir = os.path.join(args.db_path, 'val_data')
+            #positions = np.arange(int(np.ceil(n_total * args.db_ratio)), n_total)
 
-        indices = indices[positions]
-        self.dataset = database.iloc[indices, :]
-        self.root_dir = args.db_path
+        database = pd.read_csv(csv_file)
+        n_total = len(database)
+        #indices = np.arange(n_total)
+        #np.random.seed(args.seed)
+        #np.random.shuffle(indices)
+
+        #indices = indices[positions]
+        self.dataset = database #.iloc[indices, :]
         self.data_transform = data_transform
         self.target_transform = target_transform
 

@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from torchvision import transforms
 from rirnet.transforms import ToTensor, ToNormalized, ToNegativeLog, ToUnitNorm
 import numpy as np
+import torch
 
 # -------------  Network class  ------------- #
 class Net(nn.Module):
@@ -11,60 +12,114 @@ class Net(nn.Module):
         # -------------  Model Layers  ------------- #
     def __init__(self):
         super(Net, self).__init__()
-        self.conv1 = nn.Conv2d(3, 128, 5, stride=1, padding=2)
-        self.conv2 = nn.Conv2d(128, 128, 3, stride=1, padding=1)
-        self.conv3 = nn.Conv2d(128, 128, 3, stride=1, padding=1)
-        self.conv4 = nn.Conv2d(128, 128, 3, stride=1, padding=1)
-        self.conv5 = nn.Conv2d(128, 128, 3, stride=1, padding=1)
-        self.conv6 = nn.Conv2d(128, 128, 3, stride=1, padding=1)
-        self.conv7 = nn.Conv2d(128, 128, 3, stride=1, padding=1)
-        self.conv8 = nn.Conv2d(128, 256, 3, stride=1, padding=1)
-        self.conv9 = nn.Conv2d(256, 512, 1, stride=1, padding=0)
-        self.conv10 = nn.Conv1d(2, 10, 1, stride=1, padding=0)
-        self.conv11 = nn.Conv1d(10, 2, 1, stride=1, padding=0)
-        self.bn1 = nn.BatchNorm2d(128, affine=True)
-        self.bn2 = nn.BatchNorm2d(128, affine=True)
-        self.bn3 = nn.BatchNorm2d(128, affine=True)
-        self.bn4 = nn.BatchNorm2d(128, affine=True)
-        self.bn5 = nn.BatchNorm2d(128, affine=True)
-        self.bn6 = nn.BatchNorm2d(128, affine=True)
-        self.bn7 = nn.BatchNorm2d(128, affine=True)
-        self.bn8 = nn.BatchNorm2d(256, affine=True)
-        self.bn9 = nn.BatchNorm2d(512, affine=True)
-        self.bn10 = nn.BatchNorm1d(10, affine=True)
-        self.bn11 = nn.BatchNorm1d(2, affine=True)
-        self.pool = nn.MaxPool2d(2, 2)
-        self.dropout = nn.Dropout(p=0.3)
-        self.map1 = nn.Linear(8192, 2048)
-        self.map2 = nn.Linear(2048, 32)
-        self.bnm1 = nn.BatchNorm1d(2048, affine=True)
-        self.bnm2 = nn.BatchNorm1d(32, affine=True)
+
+        #self.conv1a = nn.Conv2d(3, 4, 513, stride=2, padding=256)
+        #self.conv1b = nn.Conv2d(3, 4, 257, stride=2, padding=128)
+        #self.conv1c = nn.Conv2d(3, 4, 129, stride=2, padding=64)
+        self.conv1d = nn.Conv2d(3, 4, 65, stride=2, padding=32)
+        self.conv1e = nn.Conv2d(3, 4, 33, stride=2, padding=16)
+        self.conv1f = nn.Conv2d(3, 4, 17, stride=2, padding=8)
+        self.conv1g = nn.Conv2d(3, 4, 9, stride=2, padding=4)
+        self.conv1h = nn.Conv2d(3, 4, 5, stride=2, padding=2)
+        self.conv1i = nn.Conv2d(3, 4, 3, stride=2, padding=1)
+
+        #self.bn1a = nn.BatchNorm2d(4)
+        #self.bn1b = nn.BatchNorm2d(4)
+        #self.bn1c = nn.BatchNorm2d(4)
+        self.bn1d = nn.BatchNorm2d(4)
+        self.bn1e = nn.BatchNorm2d(4)
+        self.bn1f = nn.BatchNorm2d(4)
+        self.bn1g = nn.BatchNorm2d(4)
+        self.bn1h = nn.BatchNorm2d(4)
+        self.bn1i = nn.BatchNorm2d(4)
+
+        #self.conv2a = nn.Conv2d(4, 2, 513, stride=2, padding=256)
+        #self.conv2b = nn.Conv2d(4, 2, 257, stride=2, padding=128)
+        #self.conv2c = nn.Conv2d(4, 2, 129, stride=2, padding=64)
+        self.conv2d = nn.Conv2d(4, 2, 65, stride=2, padding=32)
+        self.conv2e = nn.Conv2d(4, 2, 33, stride=2, padding=16)
+        self.conv2f = nn.Conv2d(4, 2, 17, stride=2, padding=8)
+        self.conv2g = nn.Conv2d(4, 2, 9, stride=2, padding=4)
+        self.conv2h = nn.Conv2d(4, 2, 5, stride=2, padding=2)
+        self.conv2i = nn.Conv2d(4, 2, 3, stride=2, padding=1)
+
+        #self.bn2a = nn.BatchNorm2d(2)
+        #self.bn2b = nn.BatchNorm2d(2)
+        #self.bn2c = nn.BatchNorm2d(2)
+        self.bn2d = nn.BatchNorm2d(2)
+        self.bn2e = nn.BatchNorm2d(2)
+        self.bn2f = nn.BatchNorm2d(2)
+        self.bn2g = nn.BatchNorm2d(2)
+        self.bn2h = nn.BatchNorm2d(2)
+        self.bn2i = nn.BatchNorm2d(2)
+
+        self.pool = nn.AvgPool2d(2)
+        self.map1x1 = nn.Linear(192, 16)
+        self.bnm1 = nn.BatchNorm1d(16)
+        self.map2x1 = nn.Linear(16, 1024)
+
+        self.map1x2 = nn.Linear(192, 16)
+        self.bnm2 = nn.BatchNorm1d(16)
+        self.map2x2 = nn.Linear(16, 1024)
+
+        self.map = nn.Linear(2048, 2048)
 
 
         # -------------  Forward Pass  ------------- #
     def forward(self, x):
-        x = F.relu(self.bn1(self.conv1(x)))
-        x = F.relu(self.bn2(self.conv2(x)))
-        x = self.pool(x)
-        x = F.relu(self.bn3(self.conv3(x)))
-        x = F.relu(self.bn4(self.conv4(x)))
-        x = self.pool(x)
-        x = F.relu(self.bn5(self.conv5(x)))
-        x = self.dropout(x)
-        x = F.relu(self.bn6(self.conv6(x)))
-        x = F.relu(self.bn7(self.conv7(x)))
-        x = self.pool(x)
-        x = F.relu(self.bn8(self.conv8(x)))
-        x = self.pool(x)
-        x = F.relu(self.bn9(self.conv9(x)))
+
+        #x1 = self.bn1a(F.relu(self.conv1a(x)))
+        #x2 = self.bn1b(F.relu(self.conv1b(x)))
+        #x3 = self.bn1c(F.relu(self.conv1c(x)))
+        x4 = self.bn1d(F.relu(self.conv1d(x)))
+        x5 = self.bn1e(F.relu(self.conv1e(x)))
+        x6 = self.bn1f(F.relu(self.conv1f(x)))
+        x7 = self.bn1g(F.relu(self.conv1g(x)))
+        x8 = self.bn1h(F.relu(self.conv1h(x)))
+        x9 = self.bn1i(F.relu(self.conv1i(x)))
+
+        #x1 = self.pool(x1)
+        #x2 = self.pool(x2)
+        #x3 = self.pool(x3)
+        x4 = self.pool(x4)
+        x5 = self.pool(x5)
+        x6 = self.pool(x6)
+        x7 = self.pool(x7)
+        x8 = self.pool(x8)
+        x9 = self.pool(x9)
+
+        #x1 = self.bn2a(F.relu(self.conv2a(x1)))
+        #x2 = self.bn2b(F.relu(self.conv2b(x2)))
+        #x3 = self.bn2c(F.relu(self.conv2c(x3)))
+        x4 = self.bn2d(F.relu(self.conv2d(x4)))
+        x5 = self.bn2e(F.relu(self.conv2e(x5)))
+        x6 = self.bn2f(F.relu(self.conv2f(x6)))
+        x7 = self.bn2g(F.relu(self.conv2g(x7)))
+        x8 = self.bn2h(F.relu(self.conv2h(x8)))
+        x9 = self.bn2i(F.relu(self.conv2i(x9)))
+
+        #x1 = self.pool(x1)
+        #x2 = self.pool(x2)
+        #x3 = self.pool(x3)
+        x4 = self.pool(x4)
+        x5 = self.pool(x5)
+        x6 = self.pool(x6)
+        x7 = self.pool(x7)
+        x8 = self.pool(x8)
+        x9 = self.pool(x9)
+
+
+        x = torch.cat((x4,x5,x6,x7,x8,x9), 2)
+
         p = x.size()
-        (_, C, H, W) = x.data.size()
-        x = x.view( -1 , C * H * W)
-        x = self.bnm1(F.tanh(self.map1(x)))
-        x = self.bnm2(F.tanh(self.map2(x)))
-        x = x.view(-1, 2, 16)
-        x = self.bn10(F.relu(self.conv10(x)))
-        x = self.conv11(x)
+        (_, C, W, H) = x.data.size()
+        x1 = x.view(-1, C * W * H)
+        x1 = self.bnm1(F.tanh(self.map1x1(x1)))
+
+        x2 = x.view(-1, C * W * H)
+        x2 = self.bnm1(F.tanh(self.map1x2(x2)))
+
+        x = torch.cat((x1.unsqueeze(2),x2.unsqueeze(2)), 2)
         x = x.view(-1, 16, 2)
         return x
 
@@ -74,11 +129,11 @@ class Net(nn.Module):
         parser = argparse.ArgumentParser(description='PyTorch rirnet')
         parser.add_argument('--batch-size', type=int, default=10, metavar='N',
                             help='input batch size for training (default: 64)')
-        parser.add_argument('--test-batch-size', type=int, default=32, metavar='N',
+        parser.add_argument('--test-batch-size', type=int, default=10, metavar='N',
                             help='input batch size for testing (default: 1000)')
         parser.add_argument('--epochs', type=int, default=5000, metavar='N',
                             help='number of epochs to train (default: 10)')
-        parser.add_argument('--lr', type=float, default=0.001, metavar='LR',
+        parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
                             help='learning rate (default: 0.05)')
         parser.add_argument('--momentum', type=float, default=0.1, metavar='M',
                             help='SGD momentum (default: 0.5)')
