@@ -7,7 +7,8 @@ __pycache__/
 !**/db_setup.yaml
 
 **/models
-!**/models/*.py
 !**/models/*.sh
+
+!**/models/*.py
 
 */rirnet.egg-info
