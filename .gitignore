@@ -3,14 +3,11 @@
 audio/
 __pycache__/
 
-**/database
-!**/db_setup.yaml
+*/database
+!*/db_setup.yaml
 
 */models
 !*/models/*.py
 !*/models/*.sh
 
-**/rirnet.egg-info
-
-
-
+*/rirnet.egg-info
