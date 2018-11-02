@@ -2,7 +2,6 @@ from __future__ import print_function
 import sys
 from rirnet_database import RirnetDatabase
 import torch
-
 import torch.nn.functional as F
 import torch.optim as optim
 import matplotlib.pyplot as plt
@@ -84,27 +83,38 @@ class Model:
 
         self.autoenc.train()
         autoenc_loss_list = []
+        autoenc_loss_h_list = []
         for batch_idx, (source, target) in enumerate(self.train_loader):
             source, target = source.to(self.device), target.to(self.device)
             self.autoenc_optimizer.zero_grad()
             output = self.autoenc(target, encode=True, decode=True)
-            autoenc_loss = getattr(F, self.autoenc_args.loss_function)(output, target)
+
+            #x = torch.linspace(-2,2,924).unsqueeze(0)
+            #slope = ((-(torch.exp(2*x)-1)/(torch.exp(2*x)+1)*0.25)+0.75)
+            #weight = torch.cat(( torch.ones(1,100), slope), 1)
+            #weight = weight.unsqueeze(0).repeat(100,2,1).cuda()
+            #autoenc_loss = self.mse_weighted(output, target, weight)
+
+            autoenc_loss = getattr(F, self.autoenc_args.loss_function)(output[:,:,:], target[:,:,:])
+            autoenc_loss_h = self.hausdorff(output[:,:,:], target[:,:,:])
+            autoenc_loss_h.backward(retain_graph=True)
             autoenc_loss.backward()
             self.autoenc_optimizer.step()
 
             autoenc_loss_list.append(autoenc_loss.item())
+            #autoenc_loss_h_list.append(autoenc_loss_h.item())
 
             if batch_idx % self.autoenc_args.log_interval == 0:
-                print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLoss: {:.6f}'.format(
+                print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLoss: {:.6f}, {:.6f}'.format(
                     self.epoch + 1, batch_idx * len(source), len(self.train_loader.dataset),
-                    100. * batch_idx / len(self.train_loader), autoenc_loss.item()))
+                    100. * batch_idx / len(self.train_loader), autoenc_loss.item(), 0))
 
         self.autoenc_mean_train_loss = np.mean(autoenc_loss_list)
 
         target_im = target.cpu().detach().numpy()
         output_im = output.cpu().detach().numpy()
-        plt.plot(output_im[0, 0, :], output_im[0, 1, :], 'x', linewidth=0.5, markersize=1.2, label='output')
-        plt.plot(target_im[0, 0, :], target_im[0, 1, :], 'o', linewidth=0.5, markersize=0.7, label='target')
+        plt.plot(output_im[0, 0, :].T, output_im[0, 1, :].T, '--x', linewidth=0.5, markersize=1.2, label='output')
+        plt.plot(target_im[0, 0, :].T, target_im[0, 1, :].T, '--o', linewidth=0.5, markersize=0.7, label='target')
         plt.grid(True)
         plt.legend()
         plt.savefig('example_output_train.png')
@@ -117,14 +127,14 @@ class Model:
             for batch_idx, (source, target) in enumerate(self.eval_loader):
                 source, target = source.to(self.device), target.to(self.device)
                 output = self.autoenc(target, encode=True, decode=True)
-                eval_loss = getattr(F, self.autoenc_args.loss_function)(output, target).item()
+                eval_loss = getattr(F, self.autoenc_args.loss_function)(output[:,:,:], target[:,:,:]).item()
                 eval_loss_list.append(eval_loss)
 
         target_im = target.cpu().detach().numpy()
         output_im = output.cpu().detach().numpy()
 
-        plt.plot(output_im[0, 0, :], output_im[0, 1, :], 'x', linewidth=0.5, markersize=1.2, label='output')
-        plt.plot(target_im[0, 0, :], target_im[0, 1, :], 'o', linewidth=0.5, markersize=0.7, label='target')
+        plt.plot(output_im[0, 0, :].T, output_im[0, 1, :].T, 'x', linewidth=0.5, markersize=1.2, label='output')
+        plt.plot(target_im[0, 0, :].T, target_im[0, 1, :].T, 'o', linewidth=0.5, markersize=0.7, label='target')
         plt.title('eval')
         plt.legend()
         plt.grid(True)
@@ -132,6 +142,29 @@ class Model:
         plt.close()
         self.mean_eval_loss = np.mean(eval_loss_list)
         print(self.mean_eval_loss)
+
+
+    def mse_weighted(self, output, target, weight):
+        return torch.sum(weight * (output - target)**2)/output.numel()
+
+    def hausdorff(self, output, target):
+
+
+        res = 0
+        for i, sample in enumerate(output):
+            x = output[i].t()
+            y = target[i].t()
+
+            x_norm = (x**2).sum(1).view(-1, 1)
+            y_norm = (y**2).sum(1).view(1, -1)
+            dist = x_norm + y_norm - 2.0 * torch.mm(x, torch.transpose(y, 0, 1))
+
+            mean_1 = torch.mean(torch.min(dist, 0)[0])
+            mean_2 = torch.mean(torch.min(dist, 1)[0])
+            res += mean_1 + mean_2
+        return res/50
+
+
 
     def save_model(self):
         print(' '+'-'*64, '\nSaving\n', '-'*64)
@@ -141,14 +174,14 @@ class Model:
         torch.save(self.autoenc_optimizer.state_dict(), optimizer_full_path)
 
     def loss_to_file(self):
-        with open('loss_over_epochs.csv', 'a') as csvfile:
+        with open('loss_over_epochs_ae.csv', 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
             writer.writerow([self.epoch, self.autoenc_mean_train_loss, self.autoenc_mean_train_loss, self.mean_eval_loss, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
 
 
     def generate_plot(self):
         frmt = "%Y-%m-%d %H:%M:%S"
-        plot_data = pd.read_csv('loss_over_epochs.csv', header=None)
+        plot_data = pd.read_csv('loss_over_epochs_ae.csv', header=None)
         epochs_raw, train_l1_raw, train_l3_raw, eval_losses_raw, times_raw = plot_data.values.T
 
         epochs = [int(epoch) for epoch in list(epochs_raw) if is_number(epoch)]
@@ -176,13 +209,13 @@ class Model:
         plt.close()
 
     def stop_session(self):
-        with open('loss_over_epochs.csv', 'a') as csvfile:
+        with open('loss_over_epochs_ae.csv', 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
             writer.writerow(['stopped', 'stopped', 'stopped', 'stopped', datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
 
 
     def start_session(self):
-        with open('loss_over_epochs.csv', 'a') as csvfile:
+        with open('loss_over_epochs_ae.csv', 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
             writer.writerow(['started', 'started', 'started', 'started', datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
 

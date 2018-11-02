@@ -99,8 +99,15 @@ class Model:
             with torch.no_grad():
                 latent_target = self.autoenc(target, encode=True, decode=False)
             latent_output = self.extractor(source)
+            output = self.autoenc(latent_output, encode=False, decode=True)
+
             extractor_loss = getattr(F, self.extractor_args.loss_function)(latent_output, latent_target)
+
+            #ae_loss_h = self.hausdorff(output, target)
+            #ae_loss = getattr(F, self.extractor_args.loss_function)(output, target)
             extractor_loss.backward()
+            #ae_loss_h.backward(retain_graph=True)
+            #ae_loss.backward()
             self.extractor_optimizer.step()
 
             extractor_loss_list.append(extractor_loss.item())
@@ -133,10 +140,26 @@ class Model:
         self.target_im = target.cpu().detach().numpy()[0].T
         self.output_im = output.cpu().detach().numpy()[0].T
 
-        self.rir_im = self.reconstruct_rir(self.output_im)
+        self.rir_im = []
+        #self.rir_im = self.reconstruct_rir(self.output_im)
 
         self.mean_eval_loss = np.mean(eval_loss_list)
         print(self.mean_eval_loss)
+
+    def hausdorff(self, output, target):
+        res = 0
+        for i, sample in enumerate(output):
+            x = output[i].t()
+            y = target[i].t()
+
+            x_norm = (x**2).sum(1).view(-1, 1)
+            y_norm = (y**2).sum(1).view(1, -1)
+            dist = x_norm + y_norm - 2.0 * torch.mm(x, torch.transpose(y, 0, 1))
+
+            mean_1 = torch.mean(torch.min(dist, 0)[0])
+            mean_2 = torch.mean(torch.min(dist, 1)[0])
+            res += mean_1 + mean_2
+        return res/50
 
     def reconstruct_rir(self, output):
         fdl = 81
@@ -160,13 +183,13 @@ class Model:
         torch.save(self.extractor_optimizer.state_dict(), optimizer_full_path)
 
     def loss_to_file(self):
-        with open('loss_over_epochs.csv', 'a') as csvfile:
+        with open('loss_over_epochs_ex.csv', 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
             writer.writerow([self.epoch, self.extractor_mean_train_loss, self.extractor_mean_train_loss, self.mean_eval_loss, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
 
     def generate_plot(self):
         frmt = "%Y-%m-%d %H:%M:%S"
-        plot_data = pd.read_csv('loss_over_epochs.csv', header=None)
+        plot_data = pd.read_csv('loss_over_epochs_ex.csv', header=None)
         epochs_raw, train_l1_raw, train_l3_raw, eval_losses_raw, times_raw = plot_data.values.T
 
         epochs = [int(epoch) for epoch in list(epochs_raw) if is_number(epoch)]
@@ -225,13 +248,13 @@ class Model:
         plt.close()
 
     def stop_session(self):
-        with open('loss_over_epochs.csv', 'a') as csvfile:
+        with open('loss_over_epochs_ex.csv', 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
             writer.writerow(['stopped', 'stopped', 'stopped', 'stopped', datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
 
 
     def start_session(self):
-        with open('loss_over_epochs.csv', 'a') as csvfile:
+        with open('loss_over_epochs_ex.csv', 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
             writer.writerow(['started', 'started', 'started', 'started', datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
 

@@ -17,6 +17,7 @@ import operator
 import signal
 import sys
 from scipy.spatial.distance import cdist as cdist
+from sklearn.utils import shuffle
 
 db_setup_filename = 'db_setup.yaml'
 db_mean_filename = 'mean.npy'
@@ -88,8 +89,9 @@ class RirGenerator:
                 #peaks = [x1, y1]
 
                 ###### sorting along y-direction
-#                peaks_2 = sorted(zip(peaks[0], peaks[1]), key = operator.itemgetter(1))
-#                x2, y2 = zip(*peaks_2)
+                #peaks_2 = sorted(zip(peaks[0], peaks[1]), key = operator.itemgetter(1))
+                #x2, y2 = zip(*peaks_2)
+                #peaks = [x1, y1]
 
                 ###### using the y-direction sorting
 #                peaks = [x1, y1]
@@ -98,6 +100,21 @@ class RirGenerator:
                 #zip_peaks = [[a/s,np.log(b)] for a,b in zip(peaks[0], peaks[1])]
                 #path = NN(cdist(zip_peaks, zip_peaks))
                 #peaks = [peaks[0][path], peaks[1][path]]
+
+                ###### shuffle
+                #peaks = shuffle(peaks[0], peaks[1])
+
+                #inds = range(self.peaks_length)
+                #inds = shuffle(inds)
+                #inds = np.reshape(inds, (self.peaks_length//16, 16))
+                #inds = [np.sort(ind) for ind in inds]
+
+                #times = [times[ind] for ind in inds]
+                #alphas = [alphas[ind] for ind in inds]
+                #peaks = [times, alphas]
+
+                #plt.plot(peaks[0], -np.log(peaks[1]))
+                #plt.show()
 
                 peaks_list.append(peaks)
                 info_list.append([room.corners, room.absorption, room.mic_array.R[:, i_rir], room.sources[0].position])

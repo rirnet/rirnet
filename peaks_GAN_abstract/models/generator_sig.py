@@ -68,13 +68,13 @@ class Net(nn.Module):
         # -------------  Training settings  ------------- #
     def args(self):
         parser = argparse.ArgumentParser(description='PyTorch rirnet')
-        parser.add_argument('--batch-size', type=int, default=30, metavar='N',
+        parser.add_argument('--batch-size', type=int, default=10, metavar='N',
                             help='input batch size for training (default: 64)')
         parser.add_argument('--test-batch-size', type=int, default=32, metavar='N',
                             help='input batch size for testing (default: 1000)')
         parser.add_argument('--epochs', type=int, default=5000, metavar='N',
                             help='number of epochs to train (default: 10)')
-        parser.add_argument('--lr', type=float, default=0.05, metavar='LR',
+        parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
                             help='learning rate (default: 0.05)')
         parser.add_argument('--momentum', type=float, default=0.1, metavar='M',
                             help='SGD momentum (default: 0.5)')
@@ -92,7 +92,7 @@ class Net(nn.Module):
                             help='show plot while training (turn off if using ssh)')
         parser.add_argument('--db_path', type=str, default='../database',
                             help='path to folder that contains database csv')
-        parser.add_argument('--db_ratio', type=float, default=0.9,
+        parser.add_argument('--db_ratio', type=float, default=0.15,
                             help='ratio of the db to use for training')
         parser.add_argument('--save_timestamps', type=bool, default=True,
                             help='enables saving of timestamps to csv')

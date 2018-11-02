@@ -32,10 +32,13 @@ class Net(nn.Module):
         self.bn8 = nn.BatchNorm2d(256, affine=True)
         self.bn9 = nn.BatchNorm2d(512, affine=True)
         self.bn10 = nn.BatchNorm1d(10, affine=True)
+        self.bn11 = nn.BatchNorm1d(2, affine=True)
         self.pool = nn.MaxPool2d(2, 2)
         self.dropout = nn.Dropout(p=0.3)
         self.map1 = nn.Linear(8192, 2048)
         self.map2 = nn.Linear(2048, 32)
+        self.bnm1 = nn.BatchNorm1d(2048, affine=True)
+        self.bnm2 = nn.BatchNorm1d(32, affine=True)
 
 
         # -------------  Forward Pass  ------------- #
@@ -57,11 +60,11 @@ class Net(nn.Module):
         p = x.size()
         (_, C, H, W) = x.data.size()
         x = x.view( -1 , C * H * W)
-        x = self.map1(x)
-        x = self.map2(x)
+        x = self.bnm1(F.tanh(self.map1(x)))
+        x = self.bnm2(F.tanh(self.map2(x)))
         x = x.view(-1, 2, 16)
-        x = self.bn10(self.conv10(x))
-        x = F.relu(self.conv11(x))
+        x = self.bn10(F.relu(self.conv10(x)))
+        x = self.conv11(x)
         x = x.view(-1, 16, 2)
         return x
 
@@ -75,7 +78,7 @@ class Net(nn.Module):
                             help='input batch size for testing (default: 1000)')
         parser.add_argument('--epochs', type=int, default=5000, metavar='N',
                             help='number of epochs to train (default: 10)')
-        parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
+        parser.add_argument('--lr', type=float, default=0.001, metavar='LR',
                             help='learning rate (default: 0.05)')
         parser.add_argument('--momentum', type=float, default=0.1, metavar='M',
                             help='SGD momentum (default: 0.5)')

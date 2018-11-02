@@ -141,7 +141,7 @@ class RirGenerator:
                     time_inds = np.argsort(times[order_inds])
                     for ind in order_inds[time_inds]:
                         ordered_inds.append(ind)
-                    peaks.append([times[ordered_inds] - min(times[ordered_inds]), alphas[ordered_inds]])
+                peaks.append([times[ordered_inds] - min(times[ordered_inds]), alphas[ordered_inds]])
             else:
                 peaks.append([times - min(times), alphas])
         return peaks
