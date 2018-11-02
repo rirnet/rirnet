@@ -7,7 +7,7 @@ __pycache__/
 !**/db_setup.yaml
 
 **/models
-!**/models/*.sh
+!run.sh
 
 !**/models/*.py
 
