@@ -27,13 +27,21 @@ def generate(min_side, max_side, min_height, max_height, n_mics, fs=16000, max_o
     room = pra.Room.from_corners([x_coords, y_coords], fs=fs, max_order=max_order, absorption=absorption)
     room.extrude(height, absorption=absorption)
 
-    mic_pos = find_valid_pos(floor_shape, height, n_mics)
-    source_pos = find_valid_pos(floor_shape, height, n_pos=1)
-    source_pos = sum(source_pos, [])
+    visible = False
+    while not visible:
 
-    mic_array = pra.MicrophoneArray(mic_pos, room.fs)
-    room.add_microphone_array(mic_array)
-    room.add_source(source_pos)
+        mic_pos = find_valid_pos(floor_shape, height, n_mics)
+        source_pos = find_valid_pos(floor_shape, height, n_pos=1)
+        source_pos = sum(source_pos, [])
+
+        room.mic_array = pra.MicrophoneArray(mic_pos, room.fs)
+        room.sources = [pra.SoundSource(source_pos, signal=None, delay=0)]
+
+        visibility_list = []
+        for pos in np.array(mic_pos).T:
+            visibility_list.append(room.is_visible(room.sources[0], pos))
+        visible = all(visibility_list)
+
     return room
 
 

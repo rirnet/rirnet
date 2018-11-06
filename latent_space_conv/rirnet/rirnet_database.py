@@ -53,5 +53,5 @@ class RirnetDatabase(Dataset):
 
         if self.data_transform and self.target_transform:
             data = self.data_transform(data)
-            target = self.target_transform(target)
+            target = self.target_transform(target)[:,:256]
         return data, target

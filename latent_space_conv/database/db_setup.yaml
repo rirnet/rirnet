@@ -12,5 +12,7 @@ hop_length: 512
 source_audio: ['']
 delta_features: True
 rir_pulses: True
+min_peaks_length: 256
+mfcc_length: 128
 n_proc: 11
 order_sorting: True

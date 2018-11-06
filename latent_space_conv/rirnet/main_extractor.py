@@ -90,7 +90,6 @@ class Model:
 
         self.extractor.train()
         extractor_loss_list = []
-        extractor_loss_D_list = []
         for batch_idx, (source, target) in enumerate(self.train_loader):
             torch.cuda.empty_cache()
             source, target = source.to(self.device), target.to(self.device)
@@ -102,10 +101,14 @@ class Model:
             extractor_loss.backward(retain_graph=True)
 
             output = self.autoenc(latent_source, encode=False, decode=True)
-            extractor_loss_output = self.hausdorff(output, target)
+            #extractor_loss_output = self.hausdorff(output, target)
+            extractor_loss_output = self.mse_weighted(output, target, 1)
+
+            #extractor_loss_output = torch.tensor(0)
             extractor_loss_output.backward()
             self.extractor_optimizer.step()
-            extractor_loss_list.append(extractor_loss_output.item())
+
+            extractor_loss_list.append(extractor_loss.item())
 
             if batch_idx % self.extractor_args.log_interval == 0:
                 print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLoss: {:.6f}, {:.6f}'.format(
@@ -128,7 +131,7 @@ class Model:
                 latent_source = self.extractor(source)
                 self.extractor_optimizer.zero_grad()
                 output = self.autoenc(latent_source, encode=False, decode=True)
-                extractor_loss = self.hausdorff(output, target)
+                extractor_loss = self.hausdorff(output[:,:,:], target[:,:,:])
 
                 self.rir_im = []
                 self.extractor_optimizer.step()

@@ -22,20 +22,18 @@ from sklearn.utils import shuffle
 db_setup_filename = 'db_setup.yaml'
 db_mean_filename = 'mean.npy'
 db_std_filename = 'std.npy'
-db_csv_filename = 'db-val.csv'
-audio_rel_path = '../../audio/chamber/val'
+audio_rel_path = '../../audio/chamber'
 db_rel_path = '../database'
-data_folder = 'val_data'
 header=['data_path', 'target_path', 'room_corners', 'room_absorption', 'room_mics', 'room_source']
 
 
 class RirGenerator:
-    def __init__(self, db_setup):
+    def __init__(self, db_setup, n_total):
+        self.n_total = n_total
         self.i_total = 0
-        self.n_total = db_setup['n_samples']
         self.db_setup = db_setup
-        self.h_length = None
-        self.peaks_length = None
+        self.h_length = db_setup['mfcc_length']*256
+        self.min_peaks_length = db_setup['min_peaks_length']
         self.discarded = 0
         self.output = mp.Queue()
         self.processes = [mp.Process(target=self.compute_room_proc) for x in range(db_setup['n_proc'])]
@@ -64,8 +62,7 @@ class RirGenerator:
             rir_length = len(cut_rir)
             peaks = room.peaks[i_rir]
             peaks_length = len(peaks[0])
-            if not self.h_length:
-                self.h_length = au.next_power_of_two(rir_length)
+
             if rir_length > self.h_length:
                 self.discarded += 1
                 return self.__next__()
@@ -73,48 +70,13 @@ class RirGenerator:
                 rir = au.pad_to(cut_rir, self.h_length, 0)
 
                 h_list.append(rir)
-                if not self.peaks_length:
-                    self.peaks_length = au.next_power_of_two(peaks_length)
-                if peaks_length > self.peaks_length:
+                if peaks_length < self.min_peaks_length:
                     self.discarded += 1
                     return self.__next__()
-                else:
-                    times = au.pad_to(peaks[0], self.peaks_length, np.max(peaks[0]))
-                    alphas = au.pad_to(peaks[1], self.peaks_length, np.min(peaks[1]))
-                    peaks = [times, alphas]
-
-                ###### sorting along x-direction
-                #peaks_1 = sorted(zip(peaks[0], peaks[1]), key = operator.itemgetter(0))
-                #x1, y1 = zip(*peaks_1)
-                #peaks = [x1, y1]
-
-                ###### sorting along y-direction
-                #peaks_2 = sorted(zip(peaks[0], peaks[1]), key = operator.itemgetter(1))
-                #x2, y2 = zip(*peaks_2)
-                #peaks = [x1, y1]
-
-                ###### using the y-direction sorting
-#                peaks = [x1, y1]
-                ###### nearest-neighbour sorting is also a possibility
-                #s = 10000
-                #zip_peaks = [[a/s,np.log(b)] for a,b in zip(peaks[0], peaks[1])]
-                #path = NN(cdist(zip_peaks, zip_peaks))
-                #peaks = [peaks[0][path], peaks[1][path]]
-
-                ###### shuffle
-                #peaks = shuffle(peaks[0], peaks[1])
-
-                #inds = range(self.peaks_length)
-                #inds = shuffle(inds)
-                #inds = np.reshape(inds, (self.peaks_length//16, 16))
-                #inds = [np.sort(ind) for ind in inds]
-
-                #times = [times[ind] for ind in inds]
-                #alphas = [alphas[ind] for ind in inds]
-                #peaks = [times, alphas]
-
-                #plt.plot(peaks[0], -np.log(peaks[1]))
-                #plt.show()
+                #else:
+                #    times = au.pad_to(peaks[0], self.peaks_length, np.max(peaks[0]))
+                #    alphas = au.pad_to(peaks[1], self.peaks_length, np.min(peaks[1]))
+                #    peaks = [times, alphas]
 
                 peaks_list.append(peaks)
                 info_list.append([room.corners, room.absorption, room.mic_array.R[:, i_rir], room.sources[0].position])
@@ -169,28 +131,6 @@ class RirGenerator:
             else:
                 peaks.append([times - min(times), alphas])
         return peaks
-
-
-def NN(A):
-    """Nearest neighbor algorithm.
-    A is an NxN array indicating distance between N locations
-    start is the index of the starting location
-    Returns the path and cost of the found solution
-    """
-    path = [-1]
-    N = A.shape[0]
-    mask = np.ones(N, dtype=bool)  # boolean values indicating which
-                                   # locations have not been visited
-    mask[-1] = False
-
-    for i in range(N-1):
-        last = path[-1]
-        next_ind = np.argmin(A[last][mask]) # find minimum of remaining locations
-        next_loc = np.arange(N)[mask][next_ind] # convert to original location
-        path.append(next_loc)
-        mask[next_loc] = False
-
-    return path
 
 
 def remove_leading_zeros(rir):
@@ -285,19 +225,9 @@ def save_mean_std(db_csv_path, mean, dataset):
     np.save(os.path.join(db_csv_folder, 'mean_{}.npy'.format(dataset)), mean)
 
 
-def build_db(root):
-    root = os.path.abspath(root)
-    db_csv_path = os.path.join(root, db_csv_filename)
-    db_setup_path = os.path.join(root, db_setup_filename)
-    db_setup = parse_yaml(db_setup_path)
-    audio_path = os.path.join(root, audio_rel_path)
-    data_folder_path = os.path.join(root, data_folder)
-    if not os.path.exists(data_folder_path):
-        os.mkdir(data_folder_path)
-
-    wav_list = load_wavs(audio_path, db_setup)
-
-    rir_generator = RirGenerator(db_setup)
+def build(wav_list, db_csv_path, db_setup, n_total, data_folder_path):
+    print('started building')
+    rir_generator = RirGenerator(db_setup, n_total)
     with open(db_csv_path, 'w') as csvfile:
         writer = csv.writer(csvfile, delimiter=',')
         writer.writerow(header)
@@ -305,7 +235,7 @@ def build_db(root):
     db_data_mean = np.array([])
     db_target_mean = np.array([])
 
-    while rir_generator.i_total < rir_generator.n_total:
+    while rir_generator.i_total < n_total:
         for h_list, peaks_list, info_list in rir_generator:
             counter = rir_generator.i_total/rir_generator.n_total*100
             print('Progress: {:5.01f}%, Discarded {} times.'.format(counter, rir_generator.discarded), end="\r")
@@ -330,7 +260,7 @@ def build_db(root):
                 print('Started building db with data of size {} and peaks of size {}'.format(np.shape(data_list[0]), np.shape(peaks_list[0])))
             #print('Progress: {:5.01f}%, Discarded {} times.'.format(counter, rir_generator.discarded), end="\r")
 
-            n = db_setup['n_samples']
+            n = db_setup['n_samples_val']
             db_data_mean += np.sum(data_list, axis=(0, 3))/(n*np.shape(data_list)[-1])
             db_target_mean += np.sum(target_list, axis=0)/n
 
@@ -347,8 +277,41 @@ def build_db(root):
                     np.save(data_path, data)
                     np.save(peaks_path, peaks)
                     writer.writerow([data_path, peaks_path, corners, absorption, mics, sources])
+    return db_data_mean, db_target_mean
+
+def main():
+    global interrupted
+    interrupted = False
+    signal.signal(signal.SIGINT, signal_handler)
+
+    root = os.path.abspath(db_rel_path)
+
+    db_csv_path_val = os.path.join(root, 'db-val.csv')
+    db_csv_path_train = os.path.join(root, 'db-train.csv')
+
+    audio_path_val = os.path.join(root, audio_rel_path, 'val')
+    audio_path_train = os.path.join(root, audio_rel_path, 'train')
+
+    data_folder_path_val = os.path.join(root, db_rel_path, 'val_data')
+    data_folder_path_train = os.path.join(root, db_rel_path, 'train_data')
+
+    if not os.path.exists(data_folder_path_val):
+        os.mkdir(data_folder_path_val)
+
+    if not os.path.exists(data_folder_path_train):
+        os.mkdir(data_folder_path_train)
+
+    db_setup_path = os.path.join(root, db_setup_filename)
+    db_setup = parse_yaml(db_setup_path)
+
+    wav_list_val = load_wavs(audio_path_val, db_setup)
+    wav_list_train = load_wavs(audio_path_train, db_setup)
+
+    _, _ = build(wav_list_val, db_csv_path_val, db_setup, db_setup['n_samples_val'], data_folder_path_val)
+    db_data_mean, _ = build(wav_list_train, db_csv_path_train, db_setup, db_setup['n_samples_train'], data_folder_path_train)
+
     print('\nDatabase generated, Normalizing...')
-    save_mean_std(db_csv_path, db_data_mean, 'data')
+    save_mean_std(db_csv_path_train, db_data_mean, 'data')
     #save_mean_std(db_csv_path, db_target_mean, 'target')
     print('Done')
 
@@ -358,8 +321,4 @@ def signal_handler(signal, frame):
     interrupted = True
 
 if __name__ == "__main__":
-    global interrupted
-    interrupted = False
-    signal.signal(signal.SIGINT, signal_handler)
-
-    build_db(db_rel_path)
+    main()
