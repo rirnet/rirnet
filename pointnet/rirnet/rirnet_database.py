@@ -18,21 +18,16 @@ class RirnetDatabase(Dataset):
             transform (callable, optional): Optional transform to be applied
                 on a sample.
         """
-        csv_file = os.path.join(args.db_path, 'db.csv')
-        database = pd.read_csv(csv_file)
-        n_total = len(database)
-        indices = np.arange(n_total)
-        np.random.seed(args.seed)
-        np.random.shuffle(indices)
-
         if is_training:
-            positions = np.arange(int(np.floor(n_total * args.db_ratio)))
+            csv_file = os.path.join(args.db_path, 'db-train.csv')
+            self.root_dir = os.path.join(args.db_path, 'train_data')
         else:
-            positions = np.arange(int(np.ceil(n_total * args.db_ratio)), n_total)
+            csv_file = os.path.join(args.db_path, 'db-val.csv')
+            self.root_dir = os.path.join(args.db_path, 'val_data')
 
-        indices = indices[positions]
-        self.dataset = database.iloc[indices, :]
-        self.root_dir = args.db_path
+        database = pd.read_csv(csv_file)
+
+        self.dataset = database
         self.data_transform = data_transform
         self.target_transform = target_transform
 
@@ -42,13 +37,14 @@ class RirnetDatabase(Dataset):
 
 
     def __getitem__(self, idx):
-        #idx = 0
         data_path = os.path.join(self.root_dir, self.dataset.iloc[idx, 0])
         target_path = os.path.join(self.root_dir, self.dataset.iloc[idx, 1])
         data = np.load(data_path)
         target = np.load(target_path) 
+        order = np.argsort(target[0])
+        target = target[:, order]
 
         if self.data_transform and self.target_transform:
             data = self.data_transform(data)
-            target = self.target_transform(target)
+            target = self.target_transform(target)[:, :256]
         return data, target

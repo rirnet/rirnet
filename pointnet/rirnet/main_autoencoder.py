@@ -15,7 +15,6 @@ import numpy as np
 from importlib import import_module
 from glob import glob
 import signal
-import chamfer_loss as CL
 
 
 # -------------  Initialization  ------------- #
@@ -24,8 +23,8 @@ class Model:
         self.model_dir = model_dir
         sys.path.append(model_dir)
         autoenc = import_module('autoencoder')
-        discriminator = import_module('discriminator')
-        self.autoenc = autoenc.PointNet()
+        discriminator = import_module('discriminator_ae')
+        self.autoenc = autoenc.Net()
         self.D = discriminator.Net()
         self.autoenc_args = self.autoenc.args()
         self.D_args = self.D.args()
@@ -34,6 +33,13 @@ class Model:
         self.autoenc.to(self.device)
         self.D.to(self.device)
         self.kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
+
+
+        x = torch.linspace(-2, 2, 256)
+        weight = (1-torch.exp(2*x))/(4*(1+torch.exp(2*x)))
+        weight += 1 - weight[0]
+        weight = weight.repeat(self.autoenc_args.batch_size, 2, 1)
+        self.mse_weight = weight.cuda()
 
         list_epochs = glob('*_autoenc.pth')
         list_epochs = [ x for x in list_epochs if "opt_autoenc" not in x ]
@@ -47,14 +53,14 @@ class Model:
             epoch = max([int(e.split('_')[0]) for e in list_epochs])
             self.autoenc_optimizer.load_state_dict(torch.load(os.path.join(model_dir, '{}_opt_autoenc.pth'.format(str(epoch)))))
             self.autoenc.load_state_dict(torch.load(os.path.join(model_dir, '{}_autoenc.pth'.format(str(epoch)))))
-            self.D_optimizer.load_state_dict(torch.load(os.path.join(model_dir, '{}_Do.pth'.format(str(epoch)))))
-            self.D.load_state_dict(torch.load(os.path.join(model_dir, '{}_D.pth'.format(str(epoch)))))
+            #self.D_optimizer.load_state_dict(torch.load(os.path.join(model_dir, '{}_Do.pth'.format(str(epoch)))))
+            #self.D.load_state_dict(torch.load(os.path.join(model_dir, '{}_D.pth'.format(str(epoch)))))
             for g in self.autoenc_optimizer.param_groups:
                 g['lr'] = self.autoenc_args.lr
                 g['momentum'] = self.autoenc_args.momentum
-            for g in self.D_optimizer.param_groups:
-                g['lr'] = self.D_args.lr
-                g['momentum'] = self.D_args.momentum
+            #for g in self.D_optimizer.param_groups:
+            #    g['lr'] = self.D_args.lr
+            #    g['momentum'] = self.D_args.momentum
 
         self.epoch = epoch
         self.csv_path = os.path.join(self.autoenc_args.db_path, 'db.csv')
@@ -69,7 +75,6 @@ class Model:
         self.autoenc_mean_train_loss = 0
         self.autoenc_mean_eval_loss = 0
 
-        self.chamfer_loss = CL.ChamferLoss()
 
         try:
             getattr(F, self.autoenc_args.loss_function)
@@ -97,7 +102,7 @@ class Model:
             self.D_optimizer.zero_grad()
 
             with torch.no_grad():
-                output = self.autoenc(target)
+                output = self.autoenc(target, encode=True, decode=True)
             
             # Train discriminator
             target_verdict = self.D(target)
@@ -112,11 +117,12 @@ class Model:
 
             # Train autoencoder
             self.autoenc_optimizer.zero_grad()
-            output = self.autoenc(target)
+            output = self.autoenc(target, encode=True, decode=True)
             autoenc_verdict = self.D(output)
             autoenc_loss_1 = getattr(F, self.D_args.loss_function)(autoenc_verdict, torch.ones(self.autoenc_args.batch_size, 1).float().cuda())
             autoenc_loss_1.backward(retain_graph=True)
-            autoenc_loss_2 = getattr(F, self.autoenc_args.loss_function)(output, target)
+            #autoenc_loss_2 = getattr(F, self.autoenc_args.loss_function)(output, target)
+            autoenc_loss_2 = self.mse_weighted(output, target, self.mse_weight)
             autoenc_loss_2.backward(retain_graph=True)
             autoenc_loss_3 = self.hausdorff(output, target)
             autoenc_loss_3.backward()
@@ -125,9 +131,9 @@ class Model:
             autoenc_loss_list.append(autoenc_loss_3.item())
 
             if batch_idx % self.autoenc_args.log_interval == 0:
-                print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLoss: {:.6f}'.format(
-                    self.epoch + 1, batch_idx * len(source), len(self.train_loader.dataset),
-                    100. * batch_idx / len(self.train_loader), autoenc_loss_3.item()))
+                print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLoss: {:.4f}\t{:.4f}\t{:.4f}'.format(
+                    self.epoch + 1, batch_idx * len(source), len(self.train_loader.dataset), 
+                    100. * batch_idx / len(self.train_loader), autoenc_loss_3.item(), autoenc_loss_1.item(), autoenc_loss_2.item()))
 
         self.autoenc_mean_train_loss = np.mean(autoenc_loss_list)
 
@@ -140,7 +146,7 @@ class Model:
         with torch.no_grad():
             for batch_idx, (source, target) in enumerate(self.eval_loader):
                 source, target = source.to(self.device), target.to(self.device)
-                output = self.autoenc(target)
+                output = self.autoenc(target, encode=True, decode=True)
                 eval_loss = self.hausdorff(output, target)
                 #eval_loss += getattr(F, self.autoenc_args.loss_function)(output, target).item()
                 eval_loss_list.append(eval_loss)
@@ -150,6 +156,9 @@ class Model:
 
         self.mean_eval_loss = np.mean(eval_loss_list)
         print(self.mean_eval_loss)
+
+    def mse_weighted(self, output, target, weight):
+        return torch.sum(weight * (output - target)**2)/output.numel()
 
     def hausdorff(self, output, target):
         res = 0
@@ -220,6 +229,7 @@ class Model:
         plt.grid(True)
         plt.legend()
         plt.title('Train output')
+        #plt.axis([-0.25, 3.25, -0.25, 3.25])
 
         plt.subplot(2,2,4)
         plt.plot(self.target_im_eval[0,:], self.target_im_eval[1,:], 'o', linewidth=0.5, markersize=2, label='target')
@@ -227,6 +237,7 @@ class Model:
         plt.grid(True)
         plt.legend()
         plt.title('Eval output')
+        #plt.axis([-0.25, 3.25, -0.25, 3.25])
 
         plt.tight_layout()
         plt.savefig('autoenc.png')

@@ -84,9 +84,6 @@ class SetAbstraction(nn.Module):
         self.fc2 = nn.Linear(1024, 256)
         self.fc3 = nn.Linear(256, self.bottle_neck)
 
-        #init.constant_(self.transform.weight, 0)
-        #init.eye_(self.transform.bias.view(self.input_features, self.input_features))
-
     def forward(self, x):
         x = group_points(x, self.C, self.r, self.K, self.relative_pos)
         x = F.relu(self.bn1(self.conv1(x)))
@@ -98,62 +95,55 @@ class SetAbstraction(nn.Module):
         x = F.relu(self.bn5(self.fc2(x)))
         x = self.fc3(x)
         x = x.view(-1, self.bottle_neck)
-        # add identity matrix?
         return x
 
 
-class PointNet(nn.Module):
+class Net(nn.Module):
     def __init__(self):
-        super(PointNet, self).__init__()
+        super(Net, self).__init__()
         self.C = 32
         self.D = 2
         self.K = 32
-        self.bottle_neck = 8
-        #self.sa1 = SetAbstraction(self.C, self.D, self.K, self.bottle_neck, 0.5)
-        self.sa2 = SetAbstraction(self.C, self.D, self.K, self.bottle_neck, 1, False)
-        #self.sa3 = SetAbstraction(self.C, self.D, self.K, self.bottle_neck, 2)
+        self.bottle_neck = 4
+        self.sa = SetAbstraction(self.C, self.D, self.K, self.bottle_neck, 1, True)
         self.conv = nn.Conv1d(1, self.bottle_neck, 1, padding=0)
         self.bn1 = nn.BatchNorm1d(self.bottle_neck)
         self.bn2 = nn.BatchNorm1d(512)
         self.bn3 = nn.BatchNorm1d(512)
-        
+         
         self.fc1 = nn.Linear(self.bottle_neck ** 2, 512)
         self.fc2 = nn.Linear(512, 512)
         self.fc3 = nn.Linear(512, 512)
-        self.fc4 = nn.Linear(self.D * self.K, self.D * self.K)
 
-    def forward(self, x):
-        view = x.size()
-        x = self.encode(x)
-        x = self.decode(x, view)
+    def forward(self, x, encode=True, decode=False):
+        if encode:
+            x = self.encode(x)
+        if decode:
+            x = self.decode(x)
         return x
 
     def encode(self, x):
-        #x1 = self.sa1(x).unsqueeze(1)
-        x = self.sa2(x).unsqueeze(1)
-        #x3 = self.sa3(x).unsqueeze(1)
-        #x = torch.cat((x1, x2, x3), dim=1)
+        x = self.sa(x).unsqueeze(1)
         x = F.relu(self.bn1(self.conv(x)))
         _, D, K = x.size()
         x = x.view(-1, D * K)
-        x = self.fc4(x)
         return x
 
-    def decode(self, x, view):
+    def decode(self, x):
         x = F.relu(self.bn2(self.fc1(x)))
         x = F.relu(self.bn3(self.fc2(x)))
         x = self.fc3(x)
-        x = x.view(view)
+        x = x.view(-1, 2, 256)
         return x
 
 
     def args(self):
         parser = argparse.ArgumentParser(description='PyTorch rirnet')
-        parser.add_argument('--batch-size', type=int, default=100, metavar='N',
+        parser.add_argument('--batch-size', type=int, default=500, metavar='N',
                             help='input batch size for training (default: 64)')
         parser.add_argument('--test-batch-size', type=int, default=100, metavar='N',
                             help='input batch size for testing (default: 1000)')
-        parser.add_argument('--epochs', type=int, default=100, metavar='N',
+        parser.add_argument('--epochs', type=int, default=10000, metavar='N',
                             help='number of epochs to train (default: 10)')
         parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
                             help='learning rate (default: 0.005)')
