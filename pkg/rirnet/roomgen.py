@@ -14,7 +14,7 @@ def generate_from_dict(db_setup):
     return generate(min_side, max_side, min_height, max_height, n_mics, fs, max_order, min_abs, max_abs)
 
 
-def generate(min_side, max_side, min_height, max_height, n_mics, fs=16000, max_order=2, min_abs=0.1, max_abs=0.9):
+def generate(min_side, max_side, min_height, max_height, n_mics, fs=16000, max_order=2, min_abs=0.1, max_abs=0.9, signal=None):
     np.random.seed()
     floor_shape = generate_floor_shape(min_side, max_side)
     n_walls = len(floor_shape.boundary.xy[0])-1
@@ -35,7 +35,7 @@ def generate(min_side, max_side, min_height, max_height, n_mics, fs=16000, max_o
         source_pos = sum(source_pos, [])
 
         room.mic_array = pra.MicrophoneArray(mic_pos, room.fs)
-        room.sources = [pra.SoundSource(source_pos, signal=None, delay=0)]
+        room.sources = [pra.SoundSource(source_pos, signal=signal, delay=0)]
 
         visibility_list = []
         for pos in np.array(mic_pos).T:
