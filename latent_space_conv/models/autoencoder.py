@@ -73,15 +73,15 @@ class Net(nn.Module):
         self.bn5b = nn.BatchNorm1d(128)
 
         self.pool = nn.AvgPool1d(2)
-        self.map1x1 = nn.Linear(1152, 16)
+        self.map1x1 = nn.Linear(576, 16)
         self.bnm1 = nn.BatchNorm1d(16)
-        self.map2x1 = nn.Linear(16, 1024)
+        self.map2x1 = nn.Linear(16, 256)
 
-        self.map1x2 = nn.Linear(1152, 16)
+        self.map1x2 = nn.Linear(576, 16)
         self.bnm2 = nn.BatchNorm1d(16)
-        self.map2x2 = nn.Linear(16, 1024)
+        self.map2x2 = nn.Linear(16, 256)
 
-        self.map = nn.Linear(2048, 2048)
+        self.map = nn.Linear(512, 512)
 
 
         # -------------  Forward Pass  ------------- #
@@ -118,72 +118,40 @@ class Net(nn.Module):
             x8 = self.bn2h(F.relu(self.conv2h(x8)))
             x9 = self.bn2i(F.relu(self.conv2i(x9)))
 
-            x1 = self.pool(x1)
-            x2 = self.pool(x2)
-            x3 = self.pool(x3)
-            x4 = self.pool(x4)
-            x5 = self.pool(x5)
-            x6 = self.pool(x6)
-            x7 = self.pool(x7)
-            x8 = self.pool(x8)
-            x9 = self.pool(x9)
+            #x1 = self.pool(x1)
+            #x2 = self.pool(x2)
+            #x3 = self.pool(x3)
+            #x4 = self.pool(x4)
+            #x5 = self.pool(x5)
+            #x6 = self.pool(x6)
+            #x7 = self.pool(x7)
+            #x8 = self.pool(x8)
+            #x9 = self.pool(x9)
 
             x = torch.cat((x1,x2,x3,x4,x5,x6,x7,x8,x9), 2)
 
             p = x.size()
             (_, C, W) = x.data.size()
             x1 = x.view(-1, C * W)
-            x1 = self.bnm1(F.tanh(self.map1x1(x1)))
+            x1 = self.map1x1(x1)
 
             x2 = x.view(-1, C * W)
-            x2 = self.bnm1(F.tanh(self.map1x2(x2)))
+            x2 = self.map1x2(x2)
 
-            #x1 = self.bn2a(F.relu(self.conv2a(x1)))
-            #x2 = self.bn2b(F.relu(self.conv2b(x2)))
-            #x1 = self.pool(x1)
-            #x2 = self.pool(x2)
-
-            #print(x1.size())
-            #x1 = self.bn3a(F.relu(self.conv3a(x1)))
-            #x2 = self.bn3b(F.relu(self.conv3b(x2)))
-            #x1 = self.pool(x1)
-            #x2 = self.pool(x2)
-
-            #print(x1.size())
-            #x1 = self.bn4a(F.relu(self.conv4a(x1)))
-            #x2 = self.bn4b(F.relu(self.conv4b(x2)))
-            #x1 = self.pool(x1)
-            #x2 = self.pool(x2)
-
-            #print(x1.size())
-            #x1 = self.bn5a(F.relu(self.conv5a(x1)))
-            #x2 = self.bn5b(F.relu(self.conv5b(x2)))
-            #x1 = self.pool(x1)
-            #x2 = self.pool(x2)
-
-
-            #print(x1.size())
-            #p = x1.size()
-            #(_, C, W) = x1.data.size()
-            #x1 = x1.view(-1, C * W)
-            #x1 = self.bnm1(F.tanh(self.map1x1(x1)))
-
-            #x2 = x2.view( -1, C * W)
-            #x2 = self.bnm2(F.tanh(self.map1x2(x2)))
             x = torch.cat((x1.unsqueeze(2),x2.unsqueeze(2)), 2)
         if decode:
             x1 = x[:, :, 0]
             x2 = x[:, :, 1]
 
             x1 = F.relu(self.map2x1(x1))
-            x1 = x1.view(-1, 1024)
+            x1 = x1.view(-1, 256)
 
             x2 = F.relu(self.map2x2(x2))
-            x2 = x2.view(-1, 1024)
+            x2 = x2.view(-1, 256)
 
             x = torch.cat((x1,x2), 1)
-            x = (self.map(x))
-            x = x.view(-1, 2, 1024)
+            x = self.map(x)
+            x = x.view(-1, 2, 256)
 
         return x
 
@@ -191,9 +159,9 @@ class Net(nn.Module):
         # -------------  Training settings  ------------- #
     def args(self):
         parser = argparse.ArgumentParser(description='PyTorch rirnet')
-        parser.add_argument('--batch-size', type=int, default=100, metavar='N',
+        parser.add_argument('--batch-size', type=int, default=10, metavar='N',
                             help='input batch size for training (default: 64)')
-        parser.add_argument('--test-batch-size', type=int, default=100, metavar='N',
+        parser.add_argument('--test-batch-size', type=int, default=10, metavar='N',
                             help='input batch size for testing (default: 1000)')
         parser.add_argument('--epochs', type=int, default=10000, metavar='N',
                             help='number of epochs to train (default: 10)')
@@ -205,27 +173,27 @@ class Net(nn.Module):
                             help='disables CUDA training')
         parser.add_argument('--seed', type=int, default=1, metavar='S',
                             help='random seed (default: 1)')
-        parser.add_argument('--loss_function', type=str, default='mse_loss',
-                            help='the loss function to use. Must be EXACTLY as the function is called in pytorch docs')
         parser.add_argument('--log-interval', type=int, default=1, metavar='N',
                             help='how many batches to wait before logging training status')
         parser.add_argument('--save-interval', type=int, default=1000000000,
                             help='how many batches to wait before saving network')
-        parser.add_argument('--plot', type=bool, default=True,
-                            help='show plot while training (turn off if using ssh)')
-        parser.add_argument('--db_path', type=str, default='../database',
-                            help='path to folder that contains database csv')
-        parser.add_argument('--db_ratio', type=float, default=0.9,
-                            help='ratio of the db to use for training')
-        parser.add_argument('--save_timestamps', type=bool, default=True,
-                            help='enables saving of timestamps to csv')
+        parser.add_argument('--val_db_path', type=str, default='../database/db-train.csv',
+                            help='path to training database csv')
+        parser.add_argument('--train_db_path', type=str, default='../database/db-val.csv',
+                            help='path to val database csv')
+        parser.add_argument('--mean_path', type=str, default='../database/mean_data.npy',
+                            help='path to val database csv')
+        parser.add_argument('--std_path', type=str, default='../database/std_data.npy',
+                            help='path to val database csv')
+        parser.add_argument('--n_peaks', type=int, default=256,
+                            help='number of data points used by network')
         self.args, unknown = parser.parse_known_args()
         return self.args
 
 
         # -------------  Transform settings  ------------- #
     def data_transform(self):
-        data_transform = transforms.Compose([ToNormalized(self.args.db_path, 'mean_data.npy', 'std_data.npy'), ToTensor()])
+        data_transform = transforms.Compose([ToNormalized(self.args.mean_path, self.args.std_path), ToTensor()])
         return data_transform
 
     def target_transform(self):

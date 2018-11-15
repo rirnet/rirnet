@@ -110,12 +110,12 @@ class Net(nn.Module):
         self.bn1 = nn.BatchNorm1d(self.bottle_neck)
         self.bn2 = nn.BatchNorm1d(512)
         self.bn3 = nn.BatchNorm1d(512)
-         
+
         self.fc1 = nn.Linear(self.bottle_neck ** 2, 512)
         self.fc2 = nn.Linear(512, 512)
         self.fc3 = nn.Linear(512, 512)
 
-    def forward(self, x, encode=True, decode=False):
+    def forward(self, x, encode=False, decode=False):
         if encode:
             x = self.encode(x)
         if decode:
@@ -161,19 +161,23 @@ class Net(nn.Module):
                             help='how many batches to wait before saving network')
         parser.add_argument('--plot', type=bool, default=True,
                             help='show plot while training (turn off if using ssh)')
-        parser.add_argument('--db_path', type=str, default='../database',
-                            help='path to folder that contains database csv')
-        parser.add_argument('--db_ratio', type=float, default=0.9,
-                            help='ratio of the db to use for training')
-        parser.add_argument('--save_timestamps', type=bool, default=True,
-                            help='enables saving of timestamps to csv')
+        parser.add_argument('--train_db_path', type=str, default='../database/db-train.csv',
+                            help='path to train csv')
+        parser.add_argument('--val_db_path', type=str, default='../database/db-val.csv',
+                            help='path to val csv')
+        parser.add_argument('--mean_path', type=str, default='../database/mean_data.npy',
+                            help='path to dataset mean')
+        parser.add_argument('--std_path', type=str, default='../database/std_data.npy',
+                            help='path to dataset std')
+        parser.add_argument('--n_peaks', type=int, default=256,
+                            help='number of points that the network uses')
         self.args, unknown = parser.parse_known_args()
         return self.args
 
 
         # -------------  Transform settings  ------------- #
     def data_transform(self):
-        data_transform = transforms.Compose([ToNormalized(self.args.db_path, 'mean_data.npy', 'std_data.npy'), ToTensor()])
+        data_transform = transforms.Compose([ToNormalized(self.args.mean_path, self.args.std_path), ToTensor()])
         return data_transform
 
     def target_transform(self):

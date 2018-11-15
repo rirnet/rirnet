@@ -13,52 +13,40 @@ class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
 
-        #self.conv1a = nn.Conv2d(3, 4, 513, stride=2, padding=256)
-        #self.conv1b = nn.Conv2d(3, 4, 257, stride=2, padding=128)
-        #self.conv1c = nn.Conv2d(3, 4, 129, strid=2, padding=64)
-        self.conv1d = nn.Conv2d(3, 4, 65, stride=2, padding=32)
-        self.conv1e = nn.Conv2d(3, 4, 33, stride=2, padding=16)
-        self.conv1f = nn.Conv2d(3, 4, 17, stride=2, padding=8)
-        self.conv1g = nn.Conv2d(3, 4, 9, stride=2, padding=4)
-        self.conv1h = nn.Conv2d(3, 4, 5, stride=2, padding=2)
-        self.conv1i = nn.Conv2d(3, 4, 3, stride=2, padding=1)
+        self.conv1a = nn.Conv2d(3, 4, 65, stride=2, padding=32)
+        self.conv1b = nn.Conv2d(3, 4, 33, stride=2, padding=16)
+        self.conv1c = nn.Conv2d(3, 4, 17, stride=2, padding=8)
+        self.conv1d = nn.Conv2d(3, 4, 9, stride=2, padding=4)
+        self.conv1e = nn.Conv2d(3, 4, 5, stride=2, padding=2)
+        self.conv1f = nn.Conv2d(3, 4, 3, stride=2, padding=1)
 
-        #self.bn1a = nn.BatchNorm2d(4)
-        #self.bn1b = nn.BatchNorm2d(4)
-        #self.bn1c = nn.BatchNorm2d(4)
+        self.bn1a = nn.BatchNorm2d(4)
+        self.bn1b = nn.BatchNorm2d(4)
+        self.bn1c = nn.BatchNorm2d(4)
         self.bn1d = nn.BatchNorm2d(4)
         self.bn1e = nn.BatchNorm2d(4)
         self.bn1f = nn.BatchNorm2d(4)
-        self.bn1g = nn.BatchNorm2d(4)
-        self.bn1h = nn.BatchNorm2d(4)
-        self.bn1i = nn.BatchNorm2d(4)
 
-        #self.conv2a = nn.Conv2d(4, 2, 513, stride=2, padding=256)
-        #self.conv2b = nn.Conv2d(4, 2, 257, stride=2, padding=128)
-        #self.conv2c = nn.Conv2d(4, 2, 129, stride=2, padding=64)
-        self.conv2d = nn.Conv2d(4, 2, 65, stride=2, padding=32)
-        self.conv2e = nn.Conv2d(4, 2, 33, stride=2, padding=16)
-        self.conv2f = nn.Conv2d(4, 2, 17, stride=2, padding=8)
-        self.conv2g = nn.Conv2d(4, 2, 9, stride=2, padding=4)
-        self.conv2h = nn.Conv2d(4, 2, 5, stride=2, padding=2)
-        self.conv2i = nn.Conv2d(4, 2, 3, stride=2, padding=1)
+        self.conv2a = nn.Conv2d(4, 2, 65, stride=2, padding=32)
+        self.conv2b = nn.Conv2d(4, 2, 33, stride=2, padding=16)
+        self.conv2c = nn.Conv2d(4, 2, 17, stride=2, padding=8)
+        self.conv2d = nn.Conv2d(4, 2, 9, stride=2, padding=4)
+        self.conv2e = nn.Conv2d(4, 2, 5, stride=2, padding=2)
+        self.conv2f = nn.Conv2d(4, 2, 3, stride=2, padding=1)
 
-        #self.bn2a = nn.BatchNorm2d(2)
-        #self.bn2b = nn.BatchNorm2d(2)
-        #self.bn2c = nn.BatchNorm2d(2)
+        self.bn2a = nn.BatchNorm2d(2)
+        self.bn2b = nn.BatchNorm2d(2)
+        self.bn2c = nn.BatchNorm2d(2)
         self.bn2d = nn.BatchNorm2d(2)
         self.bn2e = nn.BatchNorm2d(2)
         self.bn2f = nn.BatchNorm2d(2)
-        self.bn2g = nn.BatchNorm2d(2)
-        self.bn2h = nn.BatchNorm2d(2)
-        self.bn2i = nn.BatchNorm2d(2)
 
         self.pool = nn.AvgPool2d(2)
         self.map1x1 = nn.Linear(192, 8)
         self.bn1x = nn.BatchNorm1d(8)
         self.map1x2 = nn.Linear(192, 8)
         self.bn2x = nn.BatchNorm1d(8)
-        
+
         self.dropout = nn.Dropout(p=0.3)
 
         self.map2 = nn.Linear(16, 16)
@@ -66,55 +54,43 @@ class Net(nn.Module):
         # -------------  Forward Pass  ------------- #
     def forward(self, x):
 
-        #x1 = self.bn1a(F.relu(self.conv1a(x)))
-        #x2 = self.bn1b(F.relu(self.conv1b(x)))
-        #x3 = self.bn1c(F.relu(self.conv1c(x)))
+        x1 = self.bn1a(F.relu(self.conv1a(x)))
+        x2 = self.bn1b(F.relu(self.conv1b(x)))
+        x3 = self.bn1c(F.relu(self.conv1c(x)))
         x4 = self.bn1d(F.relu(self.conv1d(x)))
         x5 = self.bn1e(F.relu(self.conv1e(x)))
         x6 = self.bn1f(F.relu(self.conv1f(x)))
-        x7 = self.bn1g(F.relu(self.conv1g(x)))
-        x8 = self.bn1h(F.relu(self.conv1h(x)))
-        x9 = self.bn1i(F.relu(self.conv1i(x)))
 
-        #x1 = self.pool(x1)
-        #x2 = self.pool(x2)
-        #x3 = self.pool(x3)
+        x1 = self.pool(x1)
+        x2 = self.pool(x2)
+        x3 = self.pool(x3)
         x4 = self.pool(x4)
         x5 = self.pool(x5)
         x6 = self.pool(x6)
-        x7 = self.pool(x7)
-        x8 = self.pool(x8)
-        x9 = self.pool(x9)
 
+        x1 = self.dropout(x1)
+        x2 = self.dropout(x2)
+        x3 = self.dropout(x3)
         x4 = self.dropout(x4)
         x5 = self.dropout(x5)
         x6 = self.dropout(x6)
-        x7 = self.dropout(x7)
-        x8 = self.dropout(x8)
-        x9 = self.dropout(x9)
 
-        #x1 = self.bn2a(F.relu(self.conv2a(x1)))
-        #x2 = self.bn2b(F.relu(self.conv2b(x2)))
-        #x3 = self.bn2c(F.relu(self.conv2c(x3)))
+        x1 = self.bn2a(F.relu(self.conv2a(x1)))
+        x2 = self.bn2b(F.relu(self.conv2b(x2)))
+        x3 = self.bn2c(F.relu(self.conv2c(x3)))
         x4 = self.bn2d(F.relu(self.conv2d(x4)))
         x5 = self.bn2e(F.relu(self.conv2e(x5)))
         x6 = self.bn2f(F.relu(self.conv2f(x6)))
-        x7 = self.bn2g(F.relu(self.conv2g(x7)))
-        x8 = self.bn2h(F.relu(self.conv2h(x8)))
-        x9 = self.bn2i(F.relu(self.conv2i(x9)))
 
-        #x1 = self.pool(x1)
-        #x2 = self.pool(x2)
-        #x3 = self.pool(x3)
+        x1 = self.pool(x1)
+        x2 = self.pool(x2)
+        x3 = self.pool(x3)
         x4 = self.pool(x4)
         x5 = self.pool(x5)
         x6 = self.pool(x6)
-        x7 = self.pool(x7)
-        x8 = self.pool(x8)
-        x9 = self.pool(x9)
 
 
-        x = torch.cat((x4,x5,x6,x7,x8,x9), 2)
+        x = torch.cat((x1,x2,x3,x4,x5,x6), 2)
 
         p = x.size()
         (_, C, W, H) = x.data.size()
@@ -155,21 +131,23 @@ class Net(nn.Module):
                             help='how many batches to wait before logging training status')
         parser.add_argument('--save-interval', type=int, default=1000000000,
                             help='how many batches to wait before saving network')
-        parser.add_argument('--plot', type=bool, default=True,
-                            help='show plot while training (turn off if using ssh)')
-        parser.add_argument('--db_path', type=str, default='../database',
-                            help='path to folder that contains database csv')
-        parser.add_argument('--db_ratio', type=float, default=0.9,
-                            help='ratio of the db to use for training')
-        parser.add_argument('--save_timestamps', type=bool, default=True,
-                            help='enables saving of timestamps to csv')
+        parser.add_argument('--train_db_path', type=str, default='../database/db-train.csv',
+                            help='path to train csv')
+        parser.add_argument('--val_db_path', type=str, default='../database/db-val.csv',
+                            help='path to val csv')
+        parser.add_argument('--mean_path', type=str, default='../database/mean_data.npy',
+                            help='path to dataset mean')
+        parser.add_argument('--std_path', type=str, default='../database/std_data.npy',
+                            help='path to dataset std')
+        parser.add_argument('--n_peaks', type=int, default=256,
+                            help='number of points that the network uses')
         self.args, unknown = parser.parse_known_args()
         return self.args
 
 
         # -------------  Transform settings  ------------- #
     def data_transform(self):
-        data_transform = transforms.Compose([ToNormalized(self.args.db_path, 'mean_data.npy', 'std_data.npy'), ToTensor()])
+        data_transform = transforms.Compose([ToNormalized(self.args.mean_path, self.args.std_path), ToTensor()])
         return data_transform
 
     def target_transform(self):

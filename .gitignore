@@ -1,6 +1,5 @@
 #gitignore
 .idea
-audio/
 __pycache__/
 
 **/database/*

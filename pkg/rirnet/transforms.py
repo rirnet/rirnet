@@ -12,9 +12,9 @@ class ToTensor(object):
 class ToNormalized(object):
     """Normalize."""
 
-    def __init__(self, path, mean_filename, std_filename):
-        self.mean = np.load(os.path.join(path, mean_filename)).T
-        self.std = np.load(os.path.join(path, std_filename)).T
+    def __init__(self, mean_path, std_path):
+        self.mean = np.load(mean_path).T
+        self.std = np.load(std_path).T
 
 
     def __call__(self, sample):

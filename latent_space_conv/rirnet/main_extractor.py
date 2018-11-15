@@ -2,7 +2,6 @@ from __future__ import print_function
 import sys
 from rirnet_database import RirnetDatabase
 import torch
-
 import torch.nn.functional as F
 import torch.optim as optim
 import matplotlib.pyplot as plt
@@ -69,14 +68,6 @@ class Model:
         self.extractor_mean_train_loss = 0
         self.extractor_mean_eval_loss = 0
 
-        try:
-            getattr(F, self.extractor_args.loss_function)
-        except AttributeError:
-            print('AttributeError! {} is not a valid loss function. The string must exactly match a pytorch loss '
-                  'function'.format(self.extractor_args.loss_function))
-            sys.exit()
-
-
     def train(self):
 
         for g in self.extractor_optimizer.param_groups:
@@ -90,6 +81,7 @@ class Model:
 
         self.extractor.train()
         extractor_loss_list = []
+        extractor_loss_output_list = []
         for batch_idx, (source, target) in enumerate(self.train_loader):
             torch.cuda.empty_cache()
             source, target = source.to(self.device), target.to(self.device)
@@ -101,20 +93,21 @@ class Model:
             extractor_loss.backward(retain_graph=True)
 
             output = self.autoenc(latent_source, encode=False, decode=True)
-            #extractor_loss_output = self.hausdorff(output, target)
-            extractor_loss_output = self.mse_weighted(output, target, 1)
+            extractor_loss_output = self.hausdorff(output, target)
 
-            #extractor_loss_output = torch.tensor(0)
             extractor_loss_output.backward()
             self.extractor_optimizer.step()
 
             extractor_loss_list.append(extractor_loss.item())
+            extractor_loss_output_list.append(extractor_loss_output.item())
 
             if batch_idx % self.extractor_args.log_interval == 0:
                 print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLoss: {:.6f}, {:.6f}'.format(
                     self.epoch + 1, batch_idx * len(source), len(self.train_loader.dataset),
                     100. * batch_idx / len(self.train_loader), extractor_loss.item(), extractor_loss_output.item()))
+
         self.extractor_mean_train_loss = np.mean(extractor_loss_list)
+        self.extractor_output_mean_train_loss = np.mean(extractor_loss_output_list)
 
         self.latent_target_im_train = latent_target.cpu().detach().numpy()[0]
         self.latent_output_im_train = latent_source.cpu().detach().numpy()[0]
@@ -133,9 +126,14 @@ class Model:
                 output = self.autoenc(latent_source, encode=False, decode=True)
                 extractor_loss = self.hausdorff(output[:,:,:], target[:,:,:])
 
-                self.rir_im = []
                 self.extractor_optimizer.step()
                 eval_loss_list.append(extractor_loss.item())
+
+        try:
+            self.rir_im = self.reconstruct_rir(output[0,:,:].cpu().numpy().T)
+        except:
+            self.rir_im = []
+
         self.latent_target_im_eval = latent_target.cpu().detach().numpy()[0]
         self.latent_output_im_eval = latent_source.cpu().detach().numpy()[0]
 
@@ -147,7 +145,7 @@ class Model:
 
 
     def mse_weighted(self, output, target, weight):
-        return torch.sum(weight * (output - target)**2)/output.numel()
+        return torch.sum(weight * (output - target)**4)/output.numel()
 
     def hausdorff(self, output, target):
         res = 0
@@ -175,7 +173,7 @@ class Model:
             time_fp = time[i] - time_ip
             ir[time_ip-fdl2:time_ip+fdl2+1] += peaks[i]*fractional_delay(time_fp)
         start_ind = min(np.where(ir != 0)[0])
-        ir = ir[start_ind:-3000]
+        #ir = ir[start_ind:-3000]
         return ir
 
     def save_model(self):
@@ -188,7 +186,7 @@ class Model:
     def loss_to_file(self):
         with open('loss_over_epochs_ex.csv', 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
-            writer.writerow([self.epoch, self.extractor_mean_train_loss, self.extractor_mean_train_loss, self.mean_eval_loss, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+            writer.writerow([self.epoch, self.extractor_output_mean_train_loss, self.extractor_mean_train_loss, self.mean_eval_loss, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
 
     def generate_plot(self):
         frmt = "%Y-%m-%d %H:%M:%S"
@@ -199,23 +197,23 @@ class Model:
         l1_train_losses = [float(loss) for loss in list(train_l1_raw) if is_number(loss)]
         l3_train_losses = [float(loss) for loss in list(train_l3_raw) if is_number(loss)]
         eval_losses = [float(loss) for loss in list(eval_losses_raw) if is_number(loss)]
+        total_time = timedelta(0, 0, 0)
+        if np.size(times_raw) > 1:
+            start_times = times_raw[epochs_raw == 'started']
+            stop_times = times_raw[epochs_raw == 'stopped']
+            for i_stop_time, stop_time in enumerate(stop_times):
+                total_time += datetime.strptime(stop_time, frmt) - datetime.strptime(start_times[i_stop_time], frmt)
+            total_time += datetime.now() - datetime.strptime(start_times[-1], frmt)
+            plt.title('Trained for {} hours and {:2d} minutes'.format(int(total_time.days/24 + total_time.seconds//3600), (total_time.seconds//60)%60))
 
-        if self.extractor_args.save_timestamps:
-            total_time = timedelta(0, 0, 0)
-            if np.size(times_raw) > 1:
-                start_times = times_raw[epochs_raw == 'started']
-                stop_times = times_raw[epochs_raw == 'stopped']
-                for i_stop_time, stop_time in enumerate(stop_times):
-                    total_time += datetime.strptime(stop_time, frmt) - datetime.strptime(start_times[i_stop_time], frmt)
-                total_time += datetime.now() - datetime.strptime(start_times[-1], frmt)
-                plt.title('Trained for {} hours and {:2d} minutes'.format(int(total_time.days/24 + total_time.seconds//3600), (total_time.seconds//60)%60))
+
         plt.figure(figsize=(16,9), dpi=110)
         plt.subplot(3,1,1)
         plt.xlabel('Epochs')
-        plt.ylabel('Loss ({})'.format(self.extractor_args.loss_function))
-        plt.semilogy(epochs, l1_train_losses, label='Abstract Train Loss')
-        plt.semilogy(epochs, l3_train_losses, label='Real Train Loss')
-        plt.semilogy(epochs, eval_losses, label='Real Eval Loss')
+        plt.ylabel('Loss')
+        plt.semilogy(epochs, l3_train_losses, '--', label='Train Loss Latent')
+        plt.semilogy(epochs, l1_train_losses, label='Train Loss Output')
+        plt.semilogy(epochs, eval_losses, label='Eval Loss Output')
         plt.legend()
         plt.grid(True, 'both')
         plt.title('Loss')

@@ -33,7 +33,6 @@ class Model:
 
         list_epochs = glob('*.pth')
         list_epochs = [ x for x in list_epochs if "opt_autoenc" not in x ]
-        #self.autoenc_optimizer = optim.SDG(self.autoenc.parameters(), lr=self.autoenc_args.lr, momentum=self.autoenc_args.momentum, nesterov=True)
 
         self.autoenc_optimizer = optim.Adam(self.autoenc.parameters(), lr=self.autoenc_args.lr, betas=(0.9, 0.99), eps=1e-5, weight_decay=0, amsgrad=False)
 
@@ -48,9 +47,7 @@ class Model:
                 g['lr'] = self.autoenc_args.lr
                 g['momentum'] = self.autoenc_args.momentum
 
-
         self.epoch = epoch
-        self.csv_path = os.path.join(self.autoenc_args.db_path, 'db.csv')
         data_transform = self.autoenc.data_transform()
         target_transform = self.autoenc.target_transform()
 
@@ -61,14 +58,6 @@ class Model:
 
         self.autoenc_mean_train_loss = 0
         self.autoenc_mean_eval_loss = 0
-
-        try:
-            getattr(F, self.autoenc_args.loss_function)
-        except AttributeError:
-            print('AttributeError! {} is not a valid loss function. The string must exactly match a pytorch loss '
-                  'function'.format(self.autoenc_args.loss_function))
-            sys.exit()
-
 
     def train(self):
 
@@ -97,21 +86,20 @@ class Model:
             weight = weight.unsqueeze(0).repeat(10,2,1).cuda()
             autoenc_loss = self.mse_weighted(output, target, weight)
 
-            #autoenc_loss = getattr(F, self.autoenc_args.loss_function)(output[:,:,:], target[:,:,:])
             autoenc_loss_h = self.hausdorff(output[:,:,:], target[:,:,:])
             autoenc_loss_h.backward(retain_graph=True)
             autoenc_loss.backward()
             self.autoenc_optimizer.step()
 
             autoenc_loss_list.append(autoenc_loss.item())
-            #autoenc_loss_h_list.append(autoenc_loss_h.item())
+            autoenc_loss_h_list.append(autoenc_loss_h.item())
 
             if batch_idx % self.autoenc_args.log_interval == 0:
                 print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLoss: {:.6f}, {:.6f}'.format(
                     self.epoch + 1, batch_idx * len(source), len(self.train_loader.dataset),
-                    100. * batch_idx / len(self.train_loader), autoenc_loss.item(), 0))
+                    100. * batch_idx / len(self.train_loader), autoenc_loss.item(), autoenc_loss_h.item()))
 
-        self.autoenc_mean_train_loss = np.mean(autoenc_loss_list)
+        self.autoenc_mean_train_loss = np.mean(autoenc_loss_h_list)
 
         target_im = target.cpu().detach().numpy()
         output_im = output.cpu().detach().numpy()
@@ -129,7 +117,6 @@ class Model:
             for batch_idx, (source, target) in enumerate(self.eval_loader):
                 target = target.to(self.device)
                 output = self.autoenc(target, encode=True, decode=True)
-                #eval_loss = getattr(F, self.autoenc_args.loss_function)(output[:,:,:], target[:,:,:]).item()
                 eval_loss = self.hausdorff(output[:,:,:], target[:,:,:]).item()
                 eval_loss_list.append(eval_loss)
 
@@ -167,8 +154,6 @@ class Model:
             res += mean_1 + mean_2
         return res/50
 
-
-
     def save_model(self):
         print(' '+'-'*64, '\nSaving\n', '-'*64)
         model_full_path = os.path.join(self.model_dir, '{}_autoenc.pth'.format(str(self.epoch)))
@@ -181,7 +166,6 @@ class Model:
             writer = csv.writer(csvfile, delimiter=',')
             writer.writerow([self.epoch, self.autoenc_mean_train_loss, self.autoenc_mean_train_loss, self.mean_eval_loss, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
 
-
     def generate_plot(self):
         frmt = "%Y-%m-%d %H:%M:%S"
         plot_data = pd.read_csv('loss_over_epochs_ae.csv', header=None)
@@ -191,18 +175,16 @@ class Model:
         l1_train_losses = [float(loss) for loss in list(train_l1_raw) if is_number(loss)]
         l3_train_losses = [float(loss) for loss in list(train_l3_raw) if is_number(loss)]
         eval_losses = [float(loss) for loss in list(eval_losses_raw) if is_number(loss)]
-
-        if self.autoenc_args.save_timestamps:
-            total_time = timedelta(0, 0, 0)
-            if np.size(times_raw) > 1:
-                start_times = times_raw[epochs_raw == 'started']
-                stop_times = times_raw[epochs_raw == 'stopped']
-                for i_stop_time, stop_time in enumerate(stop_times):
-                    total_time += datetime.strptime(stop_time, frmt) - datetime.strptime(start_times[i_stop_time], frmt)
-                total_time += datetime.now() - datetime.strptime(start_times[-1], frmt)
-                plt.title('Trained for {} hours and {:2d} minutes'.format(int(total_time.days/24 + total_time.seconds//3600), (total_time.seconds//60)%60))
+        total_time = timedelta(0, 0, 0)
+        if np.size(times_raw) > 1:
+            start_times = times_raw[epochs_raw == 'started']
+            stop_times = times_raw[epochs_raw == 'stopped']
+            for i_stop_time, stop_time in enumerate(stop_times):
+                total_time += datetime.strptime(stop_time, frmt) - datetime.strptime(start_times[i_stop_time], frmt)
+            total_time += datetime.now() - datetime.strptime(start_times[-1], frmt)
+            plt.title('Trained for {} hours and {:2d} minutes'.format(int(total_time.days/24 + total_time.seconds//3600), (total_time.seconds//60)%60))
         plt.xlabel('Epochs')
-        plt.ylabel('Loss ({})'.format(self.autoenc_args.loss_function))
+        plt.ylabel('Loss')
         plt.semilogy(epochs, l1_train_losses, label='Abstract Train Loss')
         plt.semilogy(epochs, l3_train_losses, label='Real Train Loss')
         plt.semilogy(epochs, eval_losses, label='Real Eval Loss')
@@ -216,13 +198,10 @@ class Model:
             writer = csv.writer(csvfile, delimiter=',')
             writer.writerow(['stopped', 'stopped', 'stopped', 'stopped', datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
 
-
     def start_session(self):
         with open('loss_over_epochs_ae.csv', 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
             writer.writerow(['started', 'started', 'started', 'started', datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
-
-
 
 def main(model_dir):
     global interrupted

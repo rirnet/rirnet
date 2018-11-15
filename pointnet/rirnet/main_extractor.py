@@ -1,22 +1,23 @@
 from __future__ import print_function
-import sys
 from rirnet_database import RirnetDatabase
+from datetime import datetime, timedelta
+from torch.autograd import Variable
+from importlib import import_module
+from glob import glob
+from pyroomacoustics.utilities import fractional_delay
+
+import sys
 import torch
+import os
+import csv
+import signal
 
 import torch.nn.functional as F
 import torch.optim as optim
 import matplotlib.pyplot as plt
-import os
-import csv
 import pandas as pd
-from datetime import datetime, timedelta
-from torch.autograd import Variable
 import numpy as np
-from importlib import import_module
-from glob import glob
-import signal
-from pyroomacoustics.utilities import fractional_delay
-
+import rirnet.misc as misc
 
 # -------------  Initialization  ------------- #
 class Model:
@@ -24,9 +25,8 @@ class Model:
         self.model_dir = model_dir
         sys.path.append(model_dir)
         extractor = import_module('extractor')
-        autoenc = import_module('autoencoder')
-        self.extractor = extractor.Net()
-        self.autoenc = autoenc.Net()
+        self.extractor, self.epoch = misc.load_latest(model_dir, 'extractor')
+        self.autoenc, _ = misc.load_latest(model_dir, 'autoencoder')
         self.extractor_args = self.extractor.args()
 
         use_cuda = not self.extractor_args.no_cuda and torch.cuda.is_available()
@@ -35,29 +35,14 @@ class Model:
         self.autoenc.to(self.device)
         self.kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
 
-        list_epochs_extractor = glob('*_extractor.pth')
-        list_epochs_autoenc = glob('*_autoenc.pth')
-        list_epochs_discriminator = glob('*_disc.pth')
-        list_epochs_extractor = [ x for x in list_epochs_extractor if "opt_extractor" not in x ]
-        list_epochs_autoenc = [ x for x in list_epochs_autoenc if "opt_autoenc" not in x ]
-        list_epochs_disc = [ x for x in list_epochs_autoenc if "opt_disc" not in x ]
-
         self.extractor_optimizer = optim.Adam(self.extractor.parameters(), lr=self.extractor_args.lr, betas=(0.9, 0.99), eps=1e-5, weight_decay=0, amsgrad=False)
 
-        epoch = max([int(e.split('_')[0]) for e in list_epochs_autoenc])
-        self.autoenc.load_state_dict(torch.load(os.path.join(model_dir, '{}_autoenc.pth'.format(str(epoch)))))
-
-        if list_epochs_extractor == []:
-            epoch = 0
-        else:
-            epoch = max([int(e.split('_')[0]) for e in list_epochs_extractor])
-            self.extractor_optimizer.load_state_dict(torch.load(os.path.join(model_dir, '{}_opt_extractor.pth'.format(str(epoch)))))
-            self.extractor.load_state_dict(torch.load(os.path.join(model_dir, '{}_extractor.pth'.format(str(epoch)))))
+        if self.epoch != 0:
+            self.extractor_optimizer.load_state_dict(torch.load(os.path.join(model_dir, '{}_opt_extractor.pth'.format(self.epoch))))
             for g in self.extractor_optimizer.param_groups:
                 g['lr'] = self.extractor_args.lr
                 g['momentum'] = self.extractor_args.momentum
 
-        self.epoch = epoch
         data_transform = self.extractor.data_transform()
         target_transform = self.extractor.target_transform()
 
@@ -200,15 +185,15 @@ class Model:
         l3_train_losses = [float(loss) for loss in list(train_l3_raw) if is_number(loss)]
         eval_losses = [float(loss) for loss in list(eval_losses_raw) if is_number(loss)]
 
-        if self.extractor_args.save_timestamps:
-            total_time = timedelta(0, 0, 0)
-            if np.size(times_raw) > 1:
-                start_times = times_raw[epochs_raw == 'started']
-                stop_times = times_raw[epochs_raw == 'stopped']
-                for i_stop_time, stop_time in enumerate(stop_times):
-                    total_time += datetime.strptime(stop_time, frmt) - datetime.strptime(start_times[i_stop_time], frmt)
-                total_time += datetime.now() - datetime.strptime(start_times[-1], frmt)
-                plt.title('Trained for {} hours and {:2d} minutes'.format(int(total_time.days/24 + total_time.seconds//3600), (total_time.seconds//60)%60))
+        total_time = timedelta(0, 0, 0)
+        if np.size(times_raw) > 1:
+            start_times = times_raw[epochs_raw == 'started']
+            stop_times = times_raw[epochs_raw == 'stopped']
+            for i_stop_time, stop_time in enumerate(stop_times):
+                total_time += datetime.strptime(stop_time, frmt) - datetime.strptime(start_times[i_stop_time], frmt)
+            total_time += datetime.now() - datetime.strptime(start_times[-1], frmt)
+            plt.title('Trained for {} hours and {:2d} minutes'.format(int(total_time.days/24 + total_time.seconds//3600), (total_time.seconds//60)%60))
+
         plt.figure(figsize=(16,9), dpi=110)
         plt.subplot(3,1,1)
         plt.xlabel('Epochs')

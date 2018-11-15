@@ -42,6 +42,15 @@ def melspectrogram(waveform, rate=44100, n_fft=2048, hop_length=512, power=2.0, 
     return phase_data, mel_spectrogram
 
 
+def calculate_delta_features(data_list):
+    delta_list = []
+    delta_2_list = []
+    for data in data_list:
+        delta_list.append(librosa.feature.delta(data))
+        delta_2_list.append(librosa.feature.delta(data, order=2))
+    return delta_list, delta_2_list
+
+
 def convolve(x, h):
     return sp.signal.fftconvolve(x, h)
 
@@ -68,8 +77,19 @@ def play_file(path):
         print('Unable to play file. Please install cvlc.')
 
 
-def save_wav(path, data, rate, norm=None):
+def save_wav(path, data, rate = 44100, norm=None):
     librosa.output.write_wav(path, data, rate, norm)
+
+
+def split_signal(signal, rate = 44100, segment_length = 44100/4):
+    sound_starts = librosa.onset.onset_detect(signal, sr=rate, backtrack=True)*512
+    segment_list = []
+    for i, start in enumerate(sound_starts):
+        stop = start + next_power_of_two(int(rate/4))
+        energy = np.sum(np.abs(signal[stop-1000:stop]))
+        if energy < 8:
+            segment_list.append(signal[start:stop])
+    return segment_list
 
 
 def read_wav(path, rate=None):
