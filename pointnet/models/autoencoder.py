@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from torchvision import transforms
 from rirnet.transforms import ToUnitNorm, ToTensor, ToNormalized, ToNegativeLog
+import matplotlib.pyplot as plt
 
 def farthest_point_sampling(points, n_centroids):
     device = points.device
@@ -47,19 +48,30 @@ def group_points(points, n_centroids, radius, max_in_group, relative_pos):
     group_first = group_idx[:, :, 0].view(B, C, 1).repeat([1, 1, K])
     mask = group_idx == N
     group_idx[mask] = group_first[mask]
-    grouped_points = index_points(points, group_idx).view(B, D, C, K)
-    if relative_pos:
-        grouped_points -= centroids.unsqueeze(3).repeat([1, 1, 1, K])
+    grouped_points = index_points(points, group_idx, C).permute(0, 3, 1, 2)
+    
+    #p = points.cpu().numpy()
+    #g = grouped_points.cpu().numpy()
+    #g0 = group_first.cpu().numpy()
+    #plt.plot(p[0, 0, :], p[0, 1, :], '.')
+    #for i in range(n_centroids):
+    #    plt.plot(g[0, 0, i, :], g[0, 1, i, :], 'x')
+    #plt.show()
+
+    #if relative_pos:
+        #not working atm
+        #grouped_points -= group_first.permute(0, 3, 1, 2)
     return grouped_points
 
 
-def index_points(points, group_idx):
-    B, _, _ = points.size()
+def index_points(points, group_idx, C):
+    B, D, N = points.size()
     view_shape = list(group_idx.shape)
     view_shape[1:] = [1] * (len(view_shape) - 1)
     repeat_shape = list(group_idx.shape)
     repeat_shape[0] = 1
     batch_indices = torch.arange(B, dtype=torch.long).view(view_shape).repeat(repeat_shape)
+    output = points[batch_indices, :, group_idx]
     return points[batch_indices, :, group_idx]
 
 
@@ -139,7 +151,7 @@ class Net(nn.Module):
 
     def args(self):
         parser = argparse.ArgumentParser(description='PyTorch rirnet')
-        parser.add_argument('--batch-size', type=int, default=500, metavar='N',
+        parser.add_argument('--batch-size', type=int, default=100, metavar='N',
                             help='input batch size for training (default: 64)')
         parser.add_argument('--test-batch-size', type=int, default=100, metavar='N',
                             help='input batch size for testing (default: 1000)')
