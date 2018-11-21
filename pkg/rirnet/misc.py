@@ -6,6 +6,7 @@ from scipy.optimize import curve_fit
 import torch
 import sys
 import os
+import matplotlib.pyplot as plt
 import numpy as np
 
 def load_latest(abspath, identifier):
@@ -19,7 +20,7 @@ def load_latest(abspath, identifier):
     if list_pth:
         max_epoch = max([int(os.path.basename(e).split('_')[0]) for e in list_pth])
         filename = '{}_{}.pth'.format(max_epoch, identifier)
-        model.load_state_dict(torch.load(os.path.join(abspath, filename)))
+        model.load_state_dict(torch.load(os.path.join(abspath, filename), map_location='cpu'))
     else:
         max_epoch = 0
     return model, max_epoch
@@ -46,7 +47,7 @@ def reconstruct_rir(time, alpha):
     ir = ir[start_ind:]
     return ir
 
-def fill_peaks(times, alphas):
+def fill_peaks(times, alphas, debug=False):
     '''
     Approximate amplitudes and times for late reverb as simulations fails to
     decrease time spacings indefinitely. The amplitudes are assumed to follow
@@ -67,7 +68,7 @@ def fill_peaks(times, alphas):
     area_early = time_simulation_limit*n_in_bins[ind_max_bin]/2
     density_early = n_early_reflections/area_early
     area_late = n_in_bins[ind_max_bin]/time_simulation_limit*rir_max_time*(rir_max_time-time_simulation_limit)/2
-    n_late_reflections = int(area_late*density_early)
+    n_late_reflections = int(area_late * density_early)
 
     new_times = np.random.triangular(time_simulation_limit, rir_max_time, rir_max_time, n_late_reflections)
 
@@ -77,4 +78,15 @@ def fill_peaks(times, alphas):
 
     filled_times = np.concatenate((times, new_times))
     filled_alphas = np.concatenate((alphas, new_alphas))
+
+    if debug:
+        plt.plot(times, alphas, 'x', label='input')
+        plt.plot(new_times, new_alphas, 'o', label='filling')
+        plt.plot(filled_times, func(filled_times, *coeff), '.', label='fit')
+        plt.show()
+
+        plt.plot(bin_edges[:-1], n_in_bins)
+        plt.plot([0, time_simulation_limit],[0,n_in_bins[ind_max_bin]])
+        plt.plot([time_simulation_limit, rir_max_time],[0, n_in_bins[ind_max_bin]/time_simulation_limit*rir_max_time])
+        plt.show()
     return filled_times, filled_alphas
