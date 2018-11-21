@@ -80,6 +80,7 @@ def fill_peaks(times, alphas, debug=False):
     filled_alphas = np.concatenate((alphas, new_alphas))
 
     if debug:
+        plt.figure()
         plt.plot(times, alphas, 'x', label='input')
         plt.plot(new_times, new_alphas, 'o', label='filling')
         plt.plot(filled_times, func(filled_times, *coeff), '.', label='fit')
