@@ -136,7 +136,7 @@ class Net(nn.Module):
 
     def encode(self, x):
         x = self.sa(x).unsqueeze(1)
-        x = F.relu(self.bn1(self.conv(x)))
+        x = self.conv(x)
         _, D, K = x.size()
         x = x.view(-1, D * K)
         return x

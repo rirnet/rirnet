@@ -32,11 +32,11 @@ def preprocess(mfccs):
     return torch.tensor(nw_input)
 
 
-def postprocess(nw_output):
+def postprocess(nw_output, points_omitted, debug=False):
     batch_size = np.shape(nw_output)[0]
     rir_list = []
     for i in range(batch_size):
-        filled_times_output, filled_alphas_output = misc.fill_peaks(nw_output[i,0,:], nw_output[i,1,:])
+        filled_times_output, filled_alphas_output = misc.fill_peaks(nw_output[i,0,:], nw_output[i,1,:], points_omitted, debug)
         output_rir = misc.reconstruct_rir(filled_times_output, filled_alphas_output)
         rir_list.append(output_rir)
     return rir_list
@@ -46,28 +46,16 @@ def main():
     model_dir = '../models'
     model = Model(model_dir)
 
-    signal, rate = au.read_wav('../../audio/livingroom/full/mario.wav')
-    signal_segment_list = au.split_signal(signal, rate = rate, segment_length = rate/4)
+    signal, rate = au.read_wav('../../audio/trapphus.wav')
+    signal_segment_list = au.split_signal(signal, rate = rate, segment_length = 60000, min_energy = 100, max_energy=4, debug=False)
     signal_segment_list = [au.pad_to(segment, 2**16) for segment in signal_segment_list]
     mfccs = [au.waveform_to_mfcc(segment, rate, n_mfcc)[1][:,:-1] for segment in signal_segment_list]
     nw_input = preprocess(mfccs)
     nw_output = model.forward(nw_input)
-    rir_list = postprocess(nw_output)
+    rir_list = postprocess(nw_output, 0, True)
+    rir_list_2 = postprocess(nw_output, 20, True)
 
-    test_signal, _ = au.read_wav('../../audio/buck_00.wav')
-    plt.ion()
-    for i, rir in enumerate(rir_list):
-        plt.plot(rir)
-        plt.show()
-        plt.pause(0.01)
-        y = au.convolve(rir, test_signal)
-        au.save_wav('{}.wav'.format(i), y)
-    plt.ioff()
     plt.show()
-
-
-
-
 
 if __name__ == "__main__":
     main()

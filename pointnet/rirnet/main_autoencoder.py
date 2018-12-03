@@ -92,8 +92,8 @@ class Model:
             autoencoder_loss_1 = getattr(F, self.discriminator_args.loss_function)(autoencoder_verdict, torch.ones(self.autoencoder_args.batch_size, 1).float().cuda())
             autoencoder_loss_1.backward(retain_graph=True)
             #autoencoder_loss_2 = getattr(F, self.autoencoder_args.loss_function)(output, target)
-            autoencoder_loss_2 = self.mse_weighted(output, target, self.mse_weight)
-            autoencoder_loss_2.backward(retain_graph=True)
+            #autoencoder_loss_2 = self.mse_weighted(output, target, self.mse_weight)
+            #autoencoder_loss_2.backward(retain_graph=True)
             autoencoder_loss_3 = self.hausdorff(output, target)
             autoencoder_loss_3.backward()
             self.autoencoder_optimizer.step()
@@ -103,7 +103,7 @@ class Model:
             if batch_idx % self.autoencoder_args.log_interval == 0:
                 print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLoss: {:.4f}\t{:.4f}\t{:.4f}'.format(
                     self.epoch + 1, batch_idx * len(source), len(self.train_loader.dataset),
-                    100. * batch_idx / len(self.train_loader), autoencoder_loss_3.item(), autoencoder_loss_1.item(), autoencoder_loss_2.item()))
+                    100. * batch_idx / len(self.train_loader), autoencoder_loss_3.item(), autoencoder_loss_3.item(), autoencoder_loss_1.item()))#autoencoder_loss_1.item(), autoencoder_loss_2.item()))
 
         self.autoencoder_mean_train_loss = np.mean(autoencoder_loss_list)
 
@@ -131,6 +131,7 @@ class Model:
         return torch.sum(weight * (output - target)**2)/output.numel()
 
     def hausdorff(self, output, target):
+        B, _, _ = output.size()
         res = 0
         for i, sample in enumerate(output):
             x = output[i].t()
@@ -144,7 +145,7 @@ class Model:
             mean_1 = torch.mean(torch.min(dist, 0)[0])
             mean_2 = torch.mean(torch.min(dist, 1)[0])
             res += mean_1 + mean_2
-        return res / 10
+        return 10* res / B
 
     def save_model(self):
         print(' '+'-'*64, '\nSaving\n', '-'*64)
