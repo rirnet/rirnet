@@ -2,7 +2,7 @@ import numpy as np
 import librosa
 import scipy as sp
 import os
-
+import matplotlib.pyplot as plt
 
 def mfcc_to_waveform(mfcc, rate, phase_data=None):
     n_mel = 128
@@ -81,13 +81,22 @@ def save_wav(path, data, rate = 44100, norm=None):
     librosa.output.write_wav(path, data, rate, norm)
 
 
-def split_signal(signal, rate = 44100, segment_length = 44100/4):
+def split_signal(signal, rate = 44100, segment_length = 44100/4, min_energy=100, max_energy=2, debug=False):
     sound_starts = librosa.onset.onset_detect(signal, sr=rate, backtrack=True)*512
+    if debug:
+        plt.figure()
+        plt.plot(signal)
+        plt.vlines(sound_starts, -1, 1)
     segment_list = []
     for i, start in enumerate(sound_starts):
-        stop = start + next_power_of_two(int(rate/4))
-        energy = np.sum(np.abs(signal[stop-1000:stop]))
-        if energy < 8:
+        stop = start + int(segment_length)
+        energy_before = np.sum(np.abs(signal[start-1000:start]))
+        energy_after = np.sum(np.abs(signal[stop-1000:stop]))
+        energy = np.sum(np.abs(signal[start:stop]))
+        if energy_before < max_energy and energy_after < max_energy and energy > min_energy:
+            if debug:
+                plt.vlines(start, -1, 1, color='g')
+                plt.vlines(stop, -1, 1, color='r')
             segment_list.append(signal[start:stop])
     return segment_list
 

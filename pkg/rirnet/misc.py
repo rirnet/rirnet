@@ -47,7 +47,7 @@ def reconstruct_rir(time, alpha):
     ir = ir[start_ind:]
     return ir
 
-def fill_peaks(times, alphas, debug=False):
+def fill_peaks(times, alphas, points_omitted, debug=False):
     '''
     Approximate amplitudes and times for late reverb as simulations fails to
     decrease time spacings indefinitely. The amplitudes are assumed to follow
@@ -55,10 +55,14 @@ def fill_peaks(times, alphas, debug=False):
     '''
     def func(t, a, b, c, d):
         return a*np.log(b*(t+c))+d
+    
+    times[times < 0] = 0
+    omit_slice = np.argsort(times)[points_omitted:]
+    sliced_sorted_times = times[omit_slice]
+    sliced_sorted_alphas = alphas[omit_slice]
 
-    coeff, _ = curve_fit(func, times, alphas)
-    rir_max_time = 1/coeff[1]*np.exp((6-coeff[3])/coeff[0])-coeff[2]
-    rir_max_time = np.min((rir_max_time, max(times)*2))
+    coeff, _ = curve_fit(func, sliced_sorted_times, sliced_sorted_alphas)
+    rir_max_time = max(times)*5
     t = np.linspace(0, rir_max_time, 1000)
     n_in_bins, bin_edges = np.histogram(times, 25)
     ind_max_bin = np.argmax(n_in_bins)
@@ -72,7 +76,7 @@ def fill_peaks(times, alphas, debug=False):
 
     new_times = np.random.triangular(time_simulation_limit, rir_max_time, rir_max_time, n_late_reflections)
 
-    std = np.std(alphas-func(times, *coeff))
+    std = np.std(sliced_sorted_alphas-func(sliced_sorted_times, *coeff))
     new_deviations = np.random.normal(scale=std, size=n_late_reflections)
     new_alphas = func(new_times, *coeff) + new_deviations
 
@@ -84,10 +88,10 @@ def fill_peaks(times, alphas, debug=False):
         plt.plot(times, alphas, 'x', label='input')
         plt.plot(new_times, new_alphas, 'o', label='filling')
         plt.plot(filled_times, func(filled_times, *coeff), '.', label='fit')
-        plt.show()
+        plt.ylim(bottom = -0.25)
 
+        plt.figure()
         plt.plot(bin_edges[:-1], n_in_bins)
         plt.plot([0, time_simulation_limit],[0,n_in_bins[ind_max_bin]])
         plt.plot([time_simulation_limit, rir_max_time],[0, n_in_bins[ind_max_bin]/time_simulation_limit*rir_max_time])
-        plt.show()
     return filled_times, filled_alphas
