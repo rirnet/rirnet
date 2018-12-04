@@ -65,46 +65,52 @@ class Model:
             g['lr'] = g['lr']*0.99
 
         self.autoencoder.train()
-        self.discriminator.train()
+        #self.discriminator.train()
         autoencoder_loss_list = []
         for batch_idx, (source, target) in enumerate(self.train_loader):
             source, target = source.to(self.device), target.to(self.device)
-            self.discriminator_optimizer.zero_grad()
+            #self.discriminator_optimizer.zero_grad()
 
-            with torch.no_grad():
-                output = self.autoencoder(target, encode=True, decode=True)
+            #with torch.no_grad():
+            #    output, _, _ = self.autoencoder(target, encode=True, decode=True)
 
             # Train discriminator
-            target_verdict = self.discriminator(target)
-            discriminator_loss_1 = getattr(F, self.discriminator_args.loss_function)(target_verdict, torch.ones(self.autoencoder_args.batch_size, 1).float().cuda())
-            discriminator_loss_1.backward()
+            #target_verdict = self.discriminator(target)
+            #discriminator_loss_1 = getattr(F, self.discriminator_args.loss_function)(target_verdict, torch.ones(self.autoencoder_args.batch_size, 1).float().cuda())
+            #discriminator_loss_1.backward()
 
-            output_verdict = self.discriminator(output)
-            discriminator_loss_2 = getattr(F, self.discriminator_args.loss_function)(output_verdict, torch.zeros(self.autoencoder_args.batch_size, 1).float().cuda())
-            discriminator_loss_2.backward()
+            #output_verdict = self.discriminator(output)
+            #discriminator_loss_2 = getattr(F, self.discriminator_args.loss_function)(output_verdict, torch.zeros(self.autoencoder_args.batch_size, 1).float().cuda())
+            #discriminator_loss_2.backward()
 
-            self.discriminator_optimizer.step()
+            #self.discriminator_optimizer.step()
 
             # Train autoencoder
             self.autoencoder_optimizer.zero_grad()
-            output = self.autoencoder(target, encode=True, decode=True)
-            autoencoder_verdict = self.discriminator(output)
-            autoencoder_loss_1 = getattr(F, self.discriminator_args.loss_function)(autoencoder_verdict, torch.ones(self.autoencoder_args.batch_size, 1).float().cuda())
-            autoencoder_loss_1.backward(retain_graph=True)
+            autoencoder_loss = 0
+            output, mu, logvar = self.autoencoder(target, encode=True, decode=True)
+            #autoencoder_verdict = self.discriminator(output)
+            #autoencoder_loss_disc = getattr(F, self.discriminator_args.loss_function)(autoencoder_verdict, torch.ones(self.autoencoder_args.batch_size, 1).float().cuda())
+            #autoencoder_loss += autoencoder_loss_disc
             #autoencoder_loss_2 = getattr(F, self.autoencoder_args.loss_function)(output, target)
-            #autoencoder_loss_2 = self.mse_weighted(output, target, self.mse_weight)
-            #autoencoder_loss_2.backward(retain_graph=True)
-            autoencoder_loss_3 = self.hausdorff(output, target)
-            autoencoder_loss_3.backward()
+            autoencoder_loss_mse = self.mse_weighted(output, target, self.mse_weight)
+            autoencoder_loss += autoencoder_loss_mse
+            autoencoder_loss_kld = self.kld(mu, logvar)
+            autoencoder_loss += autoencoder_loss_kld
+            autoencoder_loss_hauss = self.hausdorff(output, target)
+            autoencoder_loss += autoencoder_loss_hauss
+            autoencoder_loss.backward()
+            #autoencoder_loss_3 = self.chamfer_loss(output, target)
+            #autoencoder_loss_3.backward(retain_graph=True)
             self.autoencoder_optimizer.step()
 
-            autoencoder_loss_list.append(autoencoder_loss_3.item())
+            autoencoder_loss_list.append(autoencoder_loss_hauss.item())
 
             if batch_idx % self.autoencoder_args.log_interval == 0:
-                print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLoss: {:.4f}\t{:.4f}\t{:.4f}'.format(
+                print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLoss: {:.4f}\t{:.4f}\t{:.4f}\t{:.4f}'.format(
                     self.epoch + 1, batch_idx * len(source), len(self.train_loader.dataset),
-                    100. * batch_idx / len(self.train_loader), autoencoder_loss_3.item(), autoencoder_loss_3.item(), autoencoder_loss_1.item()))#autoencoder_loss_1.item(), autoencoder_loss_2.item()))
-
+                    100. * batch_idx / len(self.train_loader), autoencoder_loss_hauss.item(), autoencoder_loss_mse.item(), autoencoder_loss_kld.item(), autoencoder_loss_kld.item()))
+        
         self.autoencoder_mean_train_loss = np.mean(autoencoder_loss_list)
 
         self.target_im_train = target.cpu().detach().numpy()[0]
@@ -116,7 +122,8 @@ class Model:
         with torch.no_grad():
             for batch_idx, (source, target) in enumerate(self.eval_loader):
                 source, target = source.to(self.device), target.to(self.device)
-                output = self.autoencoder(target, encode=True, decode=True)
+                output, _, _ = self.autoencoder(target, encode=True, decode=True)
+                #eval_loss = self.chamfer_loss(output, target)
                 eval_loss = self.hausdorff(output, target)
                 #eval_loss += getattr(F, self.autoencoder_args.loss_function)(output, target).item()
                 eval_loss_list.append(eval_loss)
@@ -145,7 +152,25 @@ class Model:
             mean_1 = torch.mean(torch.min(dist, 0)[0])
             mean_2 = torch.mean(torch.min(dist, 1)[0])
             res += mean_1 + mean_2
-        return 10* res / B
+        return 10 * res / B
+
+    def kld(self, mu, logvar):
+        B, D = mu.size()
+        return -torch.sum(1 + logvar - mu.pow(2) - logvar.exp())/(2*B*D)
+    
+    def chamfer_loss(self, output, target):
+        x,y = output.permute(0,2,1), target.permute(0,2,1)
+        B, N, D = x.size()
+        xx = torch.bmm(x, x.transpose(2,1))
+        yy = torch.bmm(y, y.transpose(2,1))
+        zz = torch.bmm(x, y.transpose(2,1))
+        diag_ind = torch.arange(0, N).type(torch.cuda.LongTensor)
+        rx = xx[:, diag_ind, diag_ind].unsqueeze(1).expand_as(xx)
+        ry = yy[:, diag_ind, diag_ind].unsqueeze(1).expand_as(yy)
+        P = (rx.transpose(2, 1) + ry - 2*zz)
+        l1 = torch.mean(P.min(1)[0])
+        l2 = torch.mean(P.min(2)[0])
+        return 10*(l1 + l2)
 
     def save_model(self):
         print(' '+'-'*64, '\nSaving\n', '-'*64)

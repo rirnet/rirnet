@@ -52,15 +52,22 @@ def group_points(points, n_centroids, radius, max_in_group, relative_pos):
     
     #p = points.cpu().numpy()
     #g = grouped_points.cpu().numpy()
-    #g0 = group_first.cpu().numpy()
+    #g0 = centroids.cpu().numpy()
     #plt.plot(p[0, 0, :], p[0, 1, :], '.')
     #for i in range(n_centroids):
     #    plt.plot(g[0, 0, i, :], g[0, 1, i, :], 'x')
     #plt.show()
 
-    #if relative_pos:
+    if relative_pos:
         #not working atm
         #grouped_points -= group_first.permute(0, 3, 1, 2)
+        grouped_points -= centroids.unsqueeze(3).repeat([1, 1, 1, K])
+        #g = grouped_points.cpu().numpy()
+        #p = points.cpu().numpy()
+        #plt.plot(p[0, 0, :], p[0, 1, :], '.')
+        #for i in range(n_centroids):
+        #    plt.plot(g[0, 0, i, :], g[0, 1, i, :], 'x')
+        #plt.show()
     return grouped_points
 
 
@@ -105,7 +112,7 @@ class SetAbstraction(nn.Module):
         x = x.view(-1, 256 * self.C)
         x = F.relu(self.bn4(self.fc1(x)))
         x = F.relu(self.bn5(self.fc2(x)))
-        x = self.fc3(x)
+        x = F.relu(self.fc3(x))
         x = x.view(-1, self.bottle_neck)
         return x
 
@@ -116,30 +123,38 @@ class Net(nn.Module):
         self.C = 32
         self.D = 2
         self.K = 32
-        self.bottle_neck = 4
+        self.bottle_neck = 16
         self.sa = SetAbstraction(self.C, self.D, self.K, self.bottle_neck, 1, True)
         self.conv = nn.Conv1d(1, self.bottle_neck, 1, padding=0)
         self.bn1 = nn.BatchNorm1d(self.bottle_neck)
         self.bn2 = nn.BatchNorm1d(512)
         self.bn3 = nn.BatchNorm1d(512)
 
-        self.fc1 = nn.Linear(self.bottle_neck ** 2, 512)
+        self.fce1 = nn.Linear(self.bottle_neck, self.bottle_neck)
+        self.fce2 = nn.Linear(self.bottle_neck, self.bottle_neck)
+
+        self.fc1 = nn.Linear(self.bottle_neck, 512)
         self.fc2 = nn.Linear(512, 512)
         self.fc3 = nn.Linear(512, 512)
 
     def forward(self, x, encode=False, decode=False):
+        mu = None
+        logvar = None
         if encode:
-            x = self.encode(x)
+            mu, logvar = self.encode(x)
+            x = self.reparametrize(mu, logvar)
         if decode:
             x = self.decode(x)
-        return x
+        return x, mu, logvar
+
+    def reparametrize(self, mu, logvar):
+        std = torch.exp(0.5*logvar)
+        eps = torch.randn_like(std)
+        return eps.mul(std).add_(mu)
 
     def encode(self, x):
-        x = self.sa(x).unsqueeze(1)
-        x = self.conv(x)
-        _, D, K = x.size()
-        x = x.view(-1, D * K)
-        return x
+        x = self.sa(x)
+        return self.fce1(x), self.fce2(x)
 
     def decode(self, x):
         x = F.relu(self.bn2(self.fc1(x)))
