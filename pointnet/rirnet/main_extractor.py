@@ -74,7 +74,7 @@ class Model:
                 plt.title(g['lr'])
 
         self.extractor.train()
-        extractor_loss_list = []
+        extractor_loss_latent_list = []
         extractor_loss_output_list = []
         for batch_idx, (source, target) in enumerate(self.train_loader):
             torch.cuda.empty_cache()
@@ -82,26 +82,25 @@ class Model:
 
             latent_target = self.autoenc(target, encode=True, decode=False)
             latent_source = self.extractor(source)
+            extractor_loss = 0
             self.extractor_optimizer.zero_grad()
-            extractor_loss = self.mse_weighted(latent_source, latent_target, 0.001)
-            extractor_loss.backward(retain_graph=True)
+            extractor_loss_latent = self.mse_weighted(latent_source, latent_target, 10)
+            extractor_loss += extractor_loss_latent
 
             output = self.autoenc(latent_source, encode=False, decode=True)
-            extractor_loss_output = self.hausdorff(output, target)
-            #extractor_loss_output = self.mse_weighted(output, target, 1)
-
-            #extractor_loss_output = torch.tensor(0)
-            extractor_loss_output.backward()
+            extractor_loss_output = self.chamfer_loss(output, target)
+            extractor_loss += extractor_loss_output
+            extractor_loss.backward()
             self.extractor_optimizer.step()
 
-            extractor_loss_list.append(extractor_loss.item())
+            extractor_loss_latent_list.append(extractor_loss_latent.item())
             extractor_loss_output_list.append(extractor_loss_output.item())
 
             if batch_idx % self.extractor_args.log_interval == 0:
                 print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLoss: {:.6f}, {:.6f}'.format(
                     self.epoch + 1, batch_idx * len(source), len(self.train_loader.dataset),
-                    100. * batch_idx / len(self.train_loader), extractor_loss.item(), extractor_loss_output.item()))
-        self.extractor_mean_train_loss = np.mean(extractor_loss_list)
+                    100. * batch_idx / len(self.train_loader), extractor_loss_latent.item(), extractor_loss_output.item()))
+        self.extractor_mean_train_loss_latent = np.mean(extractor_loss_latent_list)
         self.extractor_mean_train_loss_output = np.mean(extractor_loss_output_list)
 
         self.latent_target_im_train = latent_target.cpu().detach().numpy()[0]
@@ -118,7 +117,7 @@ class Model:
                 latent_target = self.autoenc(target, encode=True, decode=False)
                 latent_source = self.extractor(source)
                 output = self.autoenc(latent_source, encode=False, decode=True)
-                extractor_loss = self.hausdorff(output[:,:,:], target[:,:,:])
+                extractor_loss = self.chamfer_loss(output, target)
 
                 self.rir_im = []
                 eval_loss_list.append(extractor_loss.item())
@@ -149,7 +148,23 @@ class Model:
             mean_1 = torch.mean(torch.min(dist, 0)[0])
             mean_2 = torch.mean(torch.min(dist, 1)[0])
             res += mean_1 + mean_2
-        return res/B
+        return res/B    
+    
+    def chamfer_loss(self, output, target):
+        x,y = output.permute(0,2,1), target.permute(0,2,1)
+        B, N, D = x.size()
+        xx = torch.bmm(x, x.transpose(2,1))
+        yy = torch.bmm(y, y.transpose(2,1))
+        zz = torch.bmm(x, y.transpose(2,1))
+        diag_ind = torch.arange(0, N).type(torch.cuda.LongTensor)
+        rx = xx[:, diag_ind, diag_ind].unsqueeze(1).expand_as(xx)
+        ry = yy[:, diag_ind, diag_ind].unsqueeze(1).expand_as(yy)
+        P = (rx.transpose(2, 1) + ry - 2*zz)
+        l1 = torch.mean(P.min(1)[0])
+        l2 = torch.mean(P.min(2)[0])
+        return 10*(l1 + l2)
+
+
 
     def reconstruct_rir(self, output):
         fdl = 81
@@ -175,7 +190,7 @@ class Model:
     def loss_to_file(self):
         with open('loss_over_epochs_ex.csv', 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
-            writer.writerow([self.epoch, self.extractor_mean_train_loss, self.extractor_mean_train_loss_output, self.mean_eval_loss, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+            writer.writerow([self.epoch, self.extractor_mean_train_loss_latent, self.extractor_mean_train_loss_output, self.mean_eval_loss, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
 
     def generate_plot(self):
         frmt = "%Y-%m-%d %H:%M:%S"

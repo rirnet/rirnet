@@ -23,13 +23,10 @@ class Model:
         self.model_dir = model_dir
         sys.path.append(model_dir)
         self.autoencoder, self.epoch = misc.load_latest(model_dir, 'autoencoder')
-        self.discriminator, _ = misc.load_latest(model_dir, 'discriminator')
         self.autoencoder_args = self.autoencoder.args()
-        self.discriminator_args = self.discriminator.args()
         use_cuda = not self.autoencoder_args.no_cuda and torch.cuda.is_available()
         self.device = torch.device("cuda" if use_cuda else "cpu")
         self.autoencoder.to(self.device)
-        self.discriminator.to(self.device)
         self.kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
 
         x = torch.linspace(-2, 2, 256)
@@ -39,7 +36,6 @@ class Model:
         self.mse_weight = weight.cuda()
 
         self.autoencoder_optimizer = optim.Adam(self.autoencoder.parameters(), lr=self.autoencoder_args.lr, betas=(0.9, 0.99), eps=1e-5, weight_decay=0, amsgrad=False)
-        self.discriminator_optimizer = optim.SGD(self.discriminator.parameters(), lr=self.discriminator_args.lr, momentum=self.discriminator_args.momentum, nesterov=True)
 
         if self.epoch != 0:
             self.autoencoder_optimizer.load_state_dict(torch.load(os.path.join(model_dir, '{}_opt_autoencoder.pth'.format(self.epoch))))
@@ -88,28 +84,26 @@ class Model:
             # Train autoencoder
             self.autoencoder_optimizer.zero_grad()
             autoencoder_loss = 0
-            output, mu, logvar = self.autoencoder(target, encode=True, decode=True)
+            output = self.autoencoder(target, encode=True, decode=True)
             #autoencoder_verdict = self.discriminator(output)
             #autoencoder_loss_disc = getattr(F, self.discriminator_args.loss_function)(autoencoder_verdict, torch.ones(self.autoencoder_args.batch_size, 1).float().cuda())
             #autoencoder_loss += autoencoder_loss_disc
             #autoencoder_loss_2 = getattr(F, self.autoencoder_args.loss_function)(output, target)
-            autoencoder_loss_mse = self.mse_weighted(output, target, self.mse_weight)
-            autoencoder_loss += autoencoder_loss_mse
-            autoencoder_loss_kld = self.kld(mu, logvar)
-            autoencoder_loss += autoencoder_loss_kld
-            autoencoder_loss_hauss = self.hausdorff(output, target)
-            autoencoder_loss += autoencoder_loss_hauss
+            #autoencoder_loss_mse = self.mse_weighted(output, target, self.mse_weight)
+            #autoencoder_loss += autoencoder_loss_mse
+            #autoencoder_loss_hauss = self.hausdorff(output, target)
+            #autoencoder_loss += autoencoder_loss_hauss*25
+            autoencoder_loss_chamfer = self.chamfer_loss(output, target)
+            autoencoder_loss += autoencoder_loss_chamfer
             autoencoder_loss.backward()
-            #autoencoder_loss_3 = self.chamfer_loss(output, target)
-            #autoencoder_loss_3.backward(retain_graph=True)
             self.autoencoder_optimizer.step()
 
-            autoencoder_loss_list.append(autoencoder_loss_hauss.item())
+            autoencoder_loss_list.append(autoencoder_loss.item())
 
             if batch_idx % self.autoencoder_args.log_interval == 0:
-                print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLoss: {:.4f}\t{:.4f}\t{:.4f}\t{:.4f}'.format(
+                print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLoss: {:.4f}\t{:.4f}'.format(
                     self.epoch + 1, batch_idx * len(source), len(self.train_loader.dataset),
-                    100. * batch_idx / len(self.train_loader), autoencoder_loss_hauss.item(), autoencoder_loss_mse.item(), autoencoder_loss_kld.item(), autoencoder_loss_kld.item()))
+                    100. * batch_idx / len(self.train_loader), autoencoder_loss_chamfer.item(), autoencoder_loss_chamfer.item()))
         
         self.autoencoder_mean_train_loss = np.mean(autoencoder_loss_list)
 
@@ -122,9 +116,9 @@ class Model:
         with torch.no_grad():
             for batch_idx, (source, target) in enumerate(self.eval_loader):
                 source, target = source.to(self.device), target.to(self.device)
-                output, _, _ = self.autoencoder(target, encode=True, decode=True)
+                output = self.autoencoder(target, encode=True, decode=True)
                 #eval_loss = self.chamfer_loss(output, target)
-                eval_loss = self.hausdorff(output, target)
+                eval_loss = self.chamfer_loss(output, target)
                 #eval_loss += getattr(F, self.autoencoder_args.loss_function)(output, target).item()
                 eval_loss_list.append(eval_loss)
 

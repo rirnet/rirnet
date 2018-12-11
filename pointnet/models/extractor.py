@@ -47,7 +47,7 @@ class Net(nn.Module):
         self.map1x2 = nn.Linear(192, 8)
         self.bn2x = nn.BatchNorm1d(8)
 
-        self.dropout = nn.Dropout(p=0.3)
+        self.dropout = nn.Dropout(p=0.2)
 
         self.map2 = nn.Linear(16, 16)
 
@@ -95,11 +95,11 @@ class Net(nn.Module):
         p = x.size()
         (_, C, W, H) = x.data.size()
         x1 = x.view(-1, C * W * H)
-        x1 = (self.bn1x(self.map1x1(x1)))
+        x1 = F.relu(self.map1x1(x1))
 
 
         x2 = x.view(-1, C * W * H)
-        x2 = (self.bn2x(self.map1x2(x2)))
+        x2 = F.relu(self.map1x2(x2))
 
 
         x = torch.cat((x1,x2), 1)
@@ -117,7 +117,7 @@ class Net(nn.Module):
                             help='input batch size for testing (default: 1000)')
         parser.add_argument('--epochs', type=int, default=5000, metavar='N',
                             help='number of epochs to train (default: 10)')
-        parser.add_argument('--lr', type=float, default=0.02, metavar='LR',
+        parser.add_argument('--lr', type=float, default=0.001, metavar='LR',
                             help='learning rate (default: 0.05)')
         parser.add_argument('--momentum', type=float, default=0.1, metavar='M',
                             help='SGD momentum (default: 0.5)')

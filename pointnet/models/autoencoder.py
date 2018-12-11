@@ -131,34 +131,27 @@ class Net(nn.Module):
         self.bn3 = nn.BatchNorm1d(512)
 
         self.fce1 = nn.Linear(self.bottle_neck, self.bottle_neck)
-        self.fce2 = nn.Linear(self.bottle_neck, self.bottle_neck)
 
         self.fc1 = nn.Linear(self.bottle_neck, 512)
         self.fc2 = nn.Linear(512, 512)
         self.fc3 = nn.Linear(512, 512)
 
     def forward(self, x, encode=False, decode=False):
-        mu = None
-        logvar = None
         if encode:
-            mu, logvar = self.encode(x)
-            x = self.reparametrize(mu, logvar)
+            x = self.encode(x)
         if decode:
             x = self.decode(x)
-        return x, mu, logvar
-
-    def reparametrize(self, mu, logvar):
-        std = torch.exp(0.5*logvar)
-        eps = torch.randn_like(std)
-        return eps.mul(std).add_(mu)
+        return x
 
     def encode(self, x):
         x = self.sa(x)
-        return self.fce1(x), self.fce2(x)
+        return self.fce1(x)
 
     def decode(self, x):
-        x = F.relu(self.bn2(self.fc1(x)))
-        x = F.relu(self.bn3(self.fc2(x)))
+        #x = F.relu(self.bn2(self.fc1(x)))
+        x = F.relu(self.fc1(x))
+        #x = F.relu(self.bn3(self.fc2(x)))
+        x = F.relu(self.fc2(x))
         x = self.fc3(x)
         x = x.view(-1, 2, 256)
         return x
@@ -172,7 +165,7 @@ class Net(nn.Module):
                             help='input batch size for testing (default: 1000)')
         parser.add_argument('--epochs', type=int, default=10000, metavar='N',
                             help='number of epochs to train (default: 10)')
-        parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
+        parser.add_argument('--lr', type=float, default=0.0001, metavar='LR',
                             help='learning rate (default: 0.005)')
         parser.add_argument('--momentum', type=float, default=0.9, metavar='M',
                             help='SGD momentum (default: 0.5)')
