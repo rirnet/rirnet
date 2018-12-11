@@ -29,12 +29,6 @@ class Model:
         self.autoencoder.to(self.device)
         self.kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
 
-        x = torch.linspace(-2, 2, 256)
-        weight = (1-torch.exp(2*x))/(4*(1+torch.exp(2*x)))
-        weight += 1 - weight[0]
-        weight = weight.repeat(self.autoencoder_args.batch_size, 2, 1)
-        self.mse_weight = weight.cuda()
-
         self.autoencoder_optimizer = optim.Adam(self.autoencoder.parameters(), lr=self.autoencoder_args.lr, betas=(0.9, 0.99), eps=1e-5, weight_decay=0, amsgrad=False)
 
         if self.epoch != 0:
@@ -57,53 +51,24 @@ class Model:
 
     def train(self):
 
-#        for g in self.autoencoder_optimizer.param_groups:
-#            g['lr'] = g['lr']*0.95
-
         self.autoencoder.train()
-        #self.discriminator.train()
         autoencoder_loss_list = []
         for batch_idx, (source, target) in enumerate(self.train_loader):
             source, target = source.to(self.device), target.to(self.device)
-            #self.discriminator_optimizer.zero_grad()
 
-            #with torch.no_grad():
-            #    output, _, _ = self.autoencoder(target, encode=True, decode=True)
-
-            # Train discriminator
-            #target_verdict = self.discriminator(target)
-            #discriminator_loss_1 = getattr(F, self.discriminator_args.loss_function)(target_verdict, torch.ones(self.autoencoder_args.batch_size, 1).float().cuda())
-            #discriminator_loss_1.backward()
-
-            #output_verdict = self.discriminator(output)
-            #discriminator_loss_2 = getattr(F, self.discriminator_args.loss_function)(output_verdict, torch.zeros(self.autoencoder_args.batch_size, 1).float().cuda())
-            #discriminator_loss_2.backward()
-
-            #self.discriminator_optimizer.step()
-
-            # Train autoencoder
             self.autoencoder_optimizer.zero_grad()
-            autoencoder_loss = 0
             output = self.autoencoder(target, encode=True, decode=True)
-            #autoencoder_verdict = self.discriminator(output)
-            #autoencoder_loss_disc = getattr(F, self.discriminator_args.loss_function)(autoencoder_verdict, torch.ones(self.autoencoder_args.batch_size, 1).float().cuda())
-            #autoencoder_loss += autoencoder_loss_disc
-            #autoencoder_loss_2 = getattr(F, self.autoencoder_args.loss_function)(output, target)
-            #autoencoder_loss_mse = self.mse_weighted(output, target, self.mse_weight)
-            #autoencoder_loss += autoencoder_loss_mse
-            #autoencoder_loss_hauss = self.hausdorff(output, target)
-            #autoencoder_loss += autoencoder_loss_hauss*25
-            autoencoder_loss_chamfer = self.chamfer_loss(output, target)
-            autoencoder_loss += autoencoder_loss_chamfer
+
+            autoencoder_loss = self.chamfer_loss(output, target)
             autoencoder_loss.backward()
             self.autoencoder_optimizer.step()
 
             autoencoder_loss_list.append(autoencoder_loss.item())
 
             if batch_idx % self.autoencoder_args.log_interval == 0:
-                print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLoss: {:.4f}\t{:.4f}'.format(
+                print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLoss: {:.4f}'.format(
                     self.epoch + 1, batch_idx * len(source), len(self.train_loader.dataset),
-                    100. * batch_idx / len(self.train_loader), autoencoder_loss_chamfer.item(), autoencoder_loss_chamfer.item()))
+                    100. * batch_idx / len(self.train_loader), autoencoder_loss.item()))
         
         self.autoencoder_mean_train_loss = np.mean(autoencoder_loss_list)
 
@@ -117,9 +82,7 @@ class Model:
             for batch_idx, (source, target) in enumerate(self.eval_loader):
                 source, target = source.to(self.device), target.to(self.device)
                 output = self.autoencoder(target, encode=True, decode=True)
-                #eval_loss = self.chamfer_loss(output, target)
                 eval_loss = self.chamfer_loss(output, target)
-                #eval_loss += getattr(F, self.autoencoder_args.loss_function)(output, target).item()
                 eval_loss_list.append(eval_loss)
 
         self.target_im_eval = target.cpu().detach().numpy()[0]
@@ -128,30 +91,6 @@ class Model:
         self.mean_eval_loss = np.mean(eval_loss_list)
         print(self.mean_eval_loss)
 
-    def mse_weighted(self, output, target, weight):
-        return torch.sum(weight * (output - target)**2)/output.numel()
-
-    def hausdorff(self, output, target):
-        B, _, _ = output.size()
-        res = 0
-        for i, sample in enumerate(output):
-            x = output[i].t()
-            y = target[i].t()
-
-            x_norm = (x**2).sum(1).view(-1,1)
-            y_norm = (y**2).sum(1).view(1,-1)
-
-            dist = x_norm+y_norm-2*torch.mm(x, torch.transpose(y,0,1))
-
-            mean_1 = torch.mean(torch.min(dist, 0)[0])
-            mean_2 = torch.mean(torch.min(dist, 1)[0])
-            res += mean_1 + mean_2
-        return 10 * res / B
-
-    def kld(self, mu, logvar):
-        B, D = mu.size()
-        return -torch.sum(1 + logvar - mu.pow(2) - logvar.exp())/(2*B*D)
-    
     def chamfer_loss(self, output, target):
         x,y = output.permute(0,2,1), target.permute(0,2,1)
         B, N, D = x.size()
@@ -208,16 +147,16 @@ class Model:
         plt.title('Loss')
 
         plt.subplot(2,2,3)
-        plt.plot(self.target_im_train[0,:], self.target_im_train[1,:], 'o-', linewidth=0.1, markersize=2, label='target')
-        plt.plot(self.output_im_train[0,:], self.output_im_train[1,:], 'x-', linewidth=0.1, markersize=2, label='output')
+        plt.plot(self.target_im_train[0,:], self.target_im_train[1,:], 'o-', linewidth=0.05, markersize=2, label='target')
+        plt.plot(self.output_im_train[0,:], self.output_im_train[1,:], 'x-', linewidth=0.05, markersize=2, label='output')
         plt.grid(True)
         plt.legend()
         plt.title('Train output')
         #plt.axis([-0.25, 3.25, -0.25, 3.25])
 
         plt.subplot(2,2,4)
-        plt.plot(self.target_im_eval[0,:], self.target_im_eval[1,:], 'o-', linewidth=0.1, markersize=2, label='target')
-        plt.plot(self.output_im_eval[0,:], self.output_im_eval[1,:], 'x-', linewidth=0.1, markersize=2, label='output')
+        plt.plot(self.target_im_eval[0,:], self.target_im_eval[1,:], 'o-', linewidth=0.05, markersize=2, label='target')
+        plt.plot(self.output_im_eval[0,:], self.output_im_eval[1,:], 'x-', linewidth=0.05, markersize=2, label='output')
         plt.grid(True)
         plt.legend()
         plt.title('Eval output')
