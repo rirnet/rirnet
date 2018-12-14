@@ -39,5 +39,6 @@ class RirnetDatabase(Dataset):
         if self.data_transform and self.target_transform:
             data = self.data_transform(data)
             target = self.target_transform(target)[:, :self.n_peaks]
-            target = target[:, permute] + torch.rand(2,1)
+            target = target[:, permute]
+            #target += torch.rand(2,1)
         return data, target

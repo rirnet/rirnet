@@ -19,12 +19,7 @@ import sys
 from scipy.spatial.distance import cdist as cdist
 from sklearn.utils import shuffle
 
-db_setup_filename = 'db_setup.yaml'
-db_mean_filename = 'mean.npy'
-db_std_filename = 'std.npy'
-audio_rel_path = '../../audio/chamber'
-db_rel_path = '../database'
-header=['data_path', 'target_path', 'room_corners', 'room_absorption', 'room_mics', 'room_source']
+header=['mfcc_path', 'peaks_path', 'waveform_path', 'room_corners', 'room_absorption', 'room_mics', 'room_source']
 
 
 class RirGenerator:
@@ -139,18 +134,16 @@ def remove_leading_zeros(rir):
     return np.array(rir)
 
 
-def generate_waveforms(wav, h_list):
+def convolve_and_pad(wav, h_list):
     data_list = []
-    target_list = []
 
     for i_h, h in enumerate(h_list):
         y = au.convolve(wav, h)
         y_length = au.next_power_of_two(np.size(y))
         data = au.pad_to(y, y_length, 0)
-        target = au.pad_to(h, y_length, 0)
-        target_list.append(target)
         data_list.append(data)
-    return np.array(target_list), np.array(data_list)
+
+    return np.array(data_list)
 
 
 def load_wavs(audio_folder, db_setup):
@@ -195,44 +188,32 @@ def parse_yaml(filename):
     return db_setup
 
 
-def save_mean_std(db_csv_path, mean, dataset):
-    db_csv_folder, _ = os.path.split(db_csv_path)
-
-    df = pd.read_csv(db_csv_path)
-    n_rows = df.shape[0]
+def save_mean_std(database_root, path_csv, mean):
+    dataframe = pd.read_csv(path_csv)
+    n_rows = dataframe.shape[0]
     std_sum = np.zeros_like(mean)
 
-    if dataset == 'data':
-        col = 0
-        for i in range(n_rows):
-            path = df.iloc[i, col]
-            data = np.load(path)
-            std_sum += sum([(d.T-mean)**2 for d in data.T])
+    col = 0
+    for i in range(n_rows):
+        path = dataframe.iloc[i, col]
+        data = np.load(path)
+        std_sum += sum([(d.T-mean)**2 for d in data.T])
         n_std = n_rows * np.shape(data)[-1]
-    elif dataset == 'target':
-        col = 1
-        for i in range(n_rows):
-            path = df.iloc[i, col]
-            data = np.load(path)
-            std_sum += (data-mean)**2
-        n_std = n_rows
-    else:
-        print('How did you even get here?!')
 
     std = np.sqrt(std_sum/(n_std-1))
 
-    np.save(os.path.join(db_csv_folder, 'std_{}.npy'.format(dataset)), std)
-    np.save(os.path.join(db_csv_folder, 'mean_{}.npy'.format(dataset)), mean)
+    np.save(os.path.join(database_root, 'std.npy'), std)
+    np.save(os.path.join(database_root, 'mean.npy'), mean)
 
 
-def build(wav_list, db_csv_path, db_setup, n_total, data_folder_path):
+def build(wav_list, path_data_folder, path_csv, db_setup, n_total):
     print('started building')
     rir_generator = RirGenerator(db_setup, n_total)
-    with open(db_csv_path, 'w') as csvfile:
+    with open(path_csv, 'w') as csvfile:
         writer = csv.writer(csvfile, delimiter=',')
         writer.writerow(header)
 
-    db_data_mean = np.array([])
+    db_mfcc_mean = np.array([])
     db_target_mean = np.array([])
 
     while rir_generator.i_total < n_total:
@@ -241,78 +222,82 @@ def build(wav_list, db_csv_path, db_setup, n_total, data_folder_path):
             print('Progress: {:5.01f}%, Discarded {} times.'.format(counter, rir_generator.discarded), end="\r")
 
             wav = random.choice(wav_list)
-            target_list, data_list = generate_waveforms(wav, h_list)
+            waveform_list = convolve_and_pad(wav, h_list)
 
-            data_list = waveforms_to_mfccs(data_list, db_setup)
-            target_list = waveforms_to_mfccs(target_list, db_setup)
+            mfcc_list = waveforms_to_mfccs(waveform_list, db_setup)
 
             if db_setup['delta_features']:
-                delta_1_list, delta_2_list = calculate_delta_features(data_list)
-                data_list = [[data, delta_1, delta_2] for data, delta_1, delta_2 in zip(data_list, delta_1_list, delta_2_list)]
+                delta_1_list, delta_2_list = calculate_delta_features(mfcc_list)
+                mfcc_list = [[mfcc, delta_1, delta_2] for mfcc, delta_1, delta_2 in zip(mfcc_list, delta_1_list, delta_2_list)]
             else:
-                data_list = [[data] for data in data_list]
+                mfcc_list = [[mfcc] for mfcc in mfcc_list]
 
-            target_list = [[target] for target in target_list]
-
-            if np.size(db_data_mean) == 0:
-                db_data_mean = np.zeros(np.shape(data_list)[1:3])
-                db_target_mean = np.zeros_like(target_list[0])
-                print('Started building db with data of size {} and peaks of size {}'.format(np.shape(data_list[0]), np.shape(peaks_list[0])))
-            #print('Progress: {:5.01f}%, Discarded {} times.'.format(counter, rir_generator.discarded), end="\r")
+            if np.size(db_mfcc_mean) == 0:
+                db_mfcc_mean = np.zeros(np.shape(mfcc_list)[1:3])
+                print('Started building db with mfcc, peaks and waveforms of size {}, {} and {} respectively'.format(np.shape(mfcc_list[0]), np.shape(peaks_list[0]), np.shape(waveform_list[0])))
 
             n = db_setup['n_samples_val']
-            db_data_mean += np.sum(data_list, axis=(0, 3))/(n*np.shape(data_list)[-1])
-            db_target_mean += np.sum(target_list, axis=0)/n
+            db_mfcc_mean += np.sum(mfcc_list, axis=(0, 3))/(n*np.shape(mfcc_list)[-1])
 
-            with open(db_csv_path, 'a') as csvfile:
+            with open(path_csv, 'a') as csvfile:
                 writer = csv.writer(csvfile, delimiter=',')
-                n_saved = rir_generator.i_total - len(data_list)
-                for i, data in enumerate(data_list):
+                n_saved = rir_generator.i_total - len(mfcc_list)
+                for i, mfcc in enumerate(mfcc_list):
                     peaks = peaks_list[i]
-                    corners, absorption, mics, sources = info_list[i]
-                    data_filename = '{}_d.npy'.format(n_saved + i)
-                    peaks_filename = '{}_p.npy'.format(n_saved + i)
-                    data_path = os.path.join(data_folder_path, data_filename)
-                    peaks_path = os.path.join(data_folder_path, peaks_filename)
-                    np.save(data_path, data)
-                    np.save(peaks_path, peaks)
-                    writer.writerow([data_path, peaks_path, corners, absorption, mics, sources])
-    return db_data_mean, db_target_mean
+                    waveform = waveform_list[i]
 
-def main():
+                    corners, absorption, mics, sources = info_list[i]
+                    mfcc_filename = '{}_mfcc.npy'.format(n_saved + i)
+                    peaks_filename = '{}_peaks.npy'.format(n_saved + i)
+                    waveform_filename = '{}_waveform.npy'.format(n_saved + i)
+                    mfcc_path = os.path.join(path_data_folder, mfcc_filename)
+                    peaks_path = os.path.join(path_data_folder, peaks_filename)
+                    waveform_path = os.path.join(path_data_folder, waveform_filename)
+                    
+                    np.save(mfcc_path, mfcc)
+                    np.save(peaks_path, peaks)
+                    np.save(waveform_path, waveform)
+                    
+                    writer.writerow([mfcc_path, peaks_path, waveform_path, corners, absorption, mics, sources])
+    return db_mfcc_mean
+
+def main(root_path):
     global interrupted
     interrupted = False
     signal.signal(signal.SIGINT, signal_handler)
 
-    root = os.path.abspath(db_rel_path)
+    root = os.path.abspath(root_path)
+    database_root = os.path.join(root, 'database')
 
-    db_csv_path_val = os.path.join(root, 'db-val.csv')
-    db_csv_path_train = os.path.join(root, 'db-train.csv')
+    path_db_setup = os.path.join(database_root, 'db_setup.yaml')
+    db_setup = parse_yaml(path_db_setup)
 
-    audio_path_val = os.path.join(root, audio_rel_path, 'val')
-    audio_path_train = os.path.join(root, audio_rel_path, 'train')
+    path_val_csv = os.path.join(database_root, 'db-val.csv')
+    path_train_csv = os.path.join(database_root, 'db-train.csv')
 
-    data_folder_path_val = os.path.join(root, db_rel_path, 'val_data')
-    data_folder_path_train = os.path.join(root, db_rel_path, 'train_data')
+    path_val_audio = os.path.join(root, db_setup['val_audio_path'])
+    path_train_audio = os.path.join(root, db_setup['train_audio_path'])
 
-    if not os.path.exists(data_folder_path_val):
-        os.mkdir(data_folder_path_val)
+    path_val_data = os.path.join(database_root, 'val_data')
+    path_train_data = os.path.join(database_root, 'train_data')
 
-    if not os.path.exists(data_folder_path_train):
-        os.mkdir(data_folder_path_train)
+    if not os.path.exists(database_root):
+        os.mkdir(database_root)
 
-    db_setup_path = os.path.join(root, db_setup_filename)
-    db_setup = parse_yaml(db_setup_path)
+    if not os.path.exists(path_val_data):
+        os.mkdir(path_val_data)
 
-    wav_list_val = load_wavs(audio_path_val, db_setup)
-    wav_list_train = load_wavs(audio_path_train, db_setup)
+    if not os.path.exists(path_train_data):
+        os.mkdir(path_train_data)
 
-    _, _ = build(wav_list_val, db_csv_path_val, db_setup, db_setup['n_samples_val'], data_folder_path_val)
-    db_data_mean, _ = build(wav_list_train, db_csv_path_train, db_setup, db_setup['n_samples_train'], data_folder_path_train)
+    wav_list_val = load_wavs(path_val_audio, db_setup)
+    wav_list_train = load_wavs(path_train_audio, db_setup)
+
+    _ = build(wav_list_val, path_val_data, path_val_csv, db_setup, db_setup['n_samples_val'])
+    train_data_mean = build(wav_list_train, path_train_data, path_train_csv, db_setup, db_setup['n_samples_train'])
 
     print('\nDatabase generated, Normalizing...')
-    save_mean_std(db_csv_path_train, db_data_mean, 'data')
-    #save_mean_std(db_csv_path, db_target_mean, 'target')
+    save_mean_std(database_root, path_train_csv, train_data_mean)
     print('Done')
 
 
@@ -321,4 +306,4 @@ def signal_handler(signal, frame):
     interrupted = True
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1])

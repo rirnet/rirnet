@@ -63,21 +63,13 @@ class Model:
 
 
     def train(self):
-
-        for g in self.extractor_optimizer.param_groups:
-            g['lr'] = g['lr']*0.95
-            plt.title(g['lr'])
-
-        if self.epoch%50 == 0:
-            for g in self.extractor_optimizer.param_groups:
-                g['lr'] = self.extractor_args.lr
-                plt.title(g['lr'])
-
         self.extractor.train()
         extractor_loss_latent_list = []
         extractor_loss_output_list = []
         for batch_idx, (source, target) in enumerate(self.train_loader):
             torch.cuda.empty_cache()
+            
+            
             source, target = source.to(self.device), target.to(self.device)
 
             latent_target = self.autoenc(target, encode=True, decode=False)
@@ -90,14 +82,14 @@ class Model:
             output = self.autoenc(latent_source, encode=False, decode=True)
             extractor_loss_output = self.chamfer_loss(output, target)
             extractor_loss += extractor_loss_output
-            extractor_loss.backward()
+            extractor_loss_latent.backward()
             self.extractor_optimizer.step()
 
             extractor_loss_latent_list.append(extractor_loss_latent.item())
             extractor_loss_output_list.append(extractor_loss_output.item())
 
             if batch_idx % self.extractor_args.log_interval == 0:
-                print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLoss: {:.6f}, {:.6f}'.format(
+                print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLatent loss: {:.6f}\t Output loss: {:.6f}'.format(
                     self.epoch + 1, batch_idx * len(source), len(self.train_loader.dataset),
                     100. * batch_idx / len(self.train_loader), extractor_loss_latent.item(), extractor_loss_output.item()))
         self.extractor_mean_train_loss_latent = np.mean(extractor_loss_latent_list)
@@ -105,10 +97,11 @@ class Model:
 
         self.latent_target_im_train = latent_target.cpu().detach().numpy()[0]
         self.latent_output_im_train = latent_source.cpu().detach().numpy()[0]
-
+    
     def evaluate(self):
         self.extractor.eval()
         eval_loss_list = []
+        eval_loss_list_latent = []
         with torch.no_grad():
             for batch_idx, (source, target) in enumerate(self.eval_loader):
                 torch.cuda.empty_cache()
@@ -116,7 +109,11 @@ class Model:
 
                 latent_target = self.autoenc(target, encode=True, decode=False)
                 latent_source = self.extractor(source)
+                
+                eval_loss_list_latent.append(self.mse_weighted(latent_source, latent_target, 10).item())
+                
                 output = self.autoenc(latent_source, encode=False, decode=True)
+                output_source = self.autoenc(latent_target, encode=False, decode=True)
                 extractor_loss = self.chamfer_loss(output, target)
 
                 self.rir_im = []
@@ -126,29 +123,15 @@ class Model:
 
         self.target_im = target.cpu().detach().numpy()[0].T
         self.output_im = output.cpu().detach().numpy()[0].T
+        self.source_im = output_source.cpu().detach().numpy()[0].T
 
         self.mean_eval_loss = np.mean(eval_loss_list)
-        print(self.mean_eval_loss)
-
+        self.mean_eval_loss_latent = np.mean(eval_loss_list_latent)
+        print('Latent loss eval:', self.mean_eval_loss_latent)
+        print('Output loss eval:', self.mean_eval_loss)
 
     def mse_weighted(self, output, target, weight):
         return torch.sum(weight * (output - target)**2)/output.numel()
-
-    def hausdorff(self, output, target):
-        B, _, _ = output.size()
-        res = 0
-        for i, sample in enumerate(output):
-            x = output[i].t()
-            y = target[i].t()
-
-            x_norm = (x**2).sum(1).view(-1, 1)
-            y_norm = (y**2).sum(1).view(1, -1)
-            dist = x_norm + y_norm - 2.0 * torch.mm(x, torch.transpose(y, 0, 1))
-
-            mean_1 = torch.mean(torch.min(dist, 0)[0])
-            mean_2 = torch.mean(torch.min(dist, 1)[0])
-            res += mean_1 + mean_2
-        return res/B    
     
     def chamfer_loss(self, output, target):
         x,y = output.permute(0,2,1), target.permute(0,2,1)
@@ -163,8 +146,6 @@ class Model:
         l1 = torch.mean(P.min(1)[0])
         l2 = torch.mean(P.min(2)[0])
         return 10*(l1 + l2)
-
-
 
     def reconstruct_rir(self, output):
         fdl = 81
@@ -190,17 +171,18 @@ class Model:
     def loss_to_file(self):
         with open('loss_over_epochs_ex.csv', 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
-            writer.writerow([self.epoch, self.extractor_mean_train_loss_latent, self.extractor_mean_train_loss_output, self.mean_eval_loss, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+            writer.writerow([self.epoch, self.extractor_mean_train_loss_latent, self.extractor_mean_train_loss_output, self.mean_eval_loss, self.mean_eval_loss_latent, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
 
     def generate_plot(self):
         frmt = "%Y-%m-%d %H:%M:%S"
         plot_data = pd.read_csv('loss_over_epochs_ex.csv', header=None)
-        epochs_raw, train_l1_raw, train_l2_raw, eval_losses_raw, times_raw = plot_data.values.T
+        epochs_raw, train_l1_raw, train_l2_raw, eval_losses_raw, eval_losses_raw_latent, times_raw = plot_data.values.T
 
         epochs = [int(epoch) for epoch in list(epochs_raw) if is_number(epoch)]
         l1_train_losses = [float(loss) for loss in list(train_l1_raw) if is_number(loss)]
         l2_train_losses = [float(loss) for loss in list(train_l2_raw) if is_number(loss)]
         eval_losses = [float(loss) for loss in list(eval_losses_raw) if is_number(loss)]
+        eval_losses_latent = [float(loss) for loss in list(eval_losses_raw_latent) if is_number(loss)]
 
         total_time = timedelta(0, 0, 0)
         if np.size(times_raw) > 1:
@@ -217,6 +199,7 @@ class Model:
         plt.ylabel('Loss ({})'.format(self.extractor_args.loss_function))
         plt.semilogy(epochs, l1_train_losses, label='Latent Train Loss')
         plt.semilogy(epochs, l2_train_losses, label='Output Train Loss')
+        plt.semilogy(epochs, eval_losses_latent, label='Latent Eval Loss')
         plt.semilogy(epochs, eval_losses, label='Output Eval Loss')
         plt.legend()
         plt.grid(True, 'both')
@@ -244,9 +227,12 @@ class Model:
         plt.title('Eval output')
 
         plt.subplot(3,2,6)
-        plt.plot(self.rir_im)
+        plt.plot(self.target_im[:,0], self.target_im[:,1], 'o', linewidth=0.5, markersize=2, label='target')
+        plt.plot(self.source_im[:,0], self.source_im[:,1], 'x', linewidth=0.5, markersize=2, label='output')
         plt.grid(True)
-        plt.title('Output rir')
+        plt.legend()
+        plt.title('Eval target output')
+    
 
         plt.tight_layout()
         plt.savefig('complete_pipeline.png')
@@ -255,13 +241,13 @@ class Model:
     def stop_session(self):
         with open('loss_over_epochs_ex.csv', 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
-            writer.writerow(['stopped', 'stopped', 'stopped', 'stopped', datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+            writer.writerow(['stopped', 'stopped', 'stopped', 'stopped', 'stopped', datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
 
 
     def start_session(self):
         with open('loss_over_epochs_ex.csv', 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
-            writer.writerow(['started', 'started', 'started', 'started', datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+            writer.writerow(['started', 'started', 'started', 'started', 'started', datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
 
 
 

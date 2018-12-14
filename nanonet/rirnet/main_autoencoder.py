@@ -30,6 +30,8 @@ class Model:
         self.kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
 
         self.autoencoder_optimizer = optim.Adam(self.autoencoder.parameters(), lr=self.autoencoder_args.lr, betas=(0.9, 0.99), eps=1e-5, weight_decay=0, amsgrad=False)
+        
+        self.best_loss = np.inf
 
         if self.epoch != 0:
             self.autoencoder_optimizer.load_state_dict(torch.load(os.path.join(model_dir, '{}_opt_autoencoder.pth'.format(self.epoch))))
@@ -51,8 +53,8 @@ class Model:
 
     def train(self):
 
-        self.autoencoder.train()
         autoencoder_loss_list = []
+        self.autoencoder.train()
         for batch_idx, (source, target) in enumerate(self.train_loader):
             source, target = source.to(self.device), target.to(self.device)
 
@@ -85,11 +87,17 @@ class Model:
                 eval_loss = self.chamfer_loss(output, target)
                 eval_loss_list.append(eval_loss)
 
+        self.mean_eval_loss = np.mean(eval_loss_list)
+
+        if self.mean_eval_loss < self.best_loss:
+            self.best_loss = self.mean_eval_loss
+            #ding()
+        
         self.target_im_eval = target.cpu().detach().numpy()[0]
         self.output_im_eval = output.cpu().detach().numpy()[0]
 
-        self.mean_eval_loss = np.mean(eval_loss_list)
-        print(self.mean_eval_loss)
+        print('Current eval loss: \t{}'.format(self.mean_eval_loss))
+        print('Best eval loss: \t{}'.format(self.best_loss))
 
     def chamfer_loss(self, output, target):
         x,y = output.permute(0,2,1), target.permute(0,2,1)
@@ -137,11 +145,13 @@ class Model:
 
         plt.figure(figsize=(16,9), dpi=110)
 
+        max_plot_length = 100
+
         plt.subplot(2,1,1)
         plt.xlabel('Epochs')
         plt.ylabel('Loss ({})'.format(self.autoencoder_args.loss_function))
-        plt.semilogy(epochs, train_losses, label='Train Loss')
-        plt.semilogy(epochs, eval_losses, label='Eval Loss')
+        plt.semilogy(epochs[-max_plot_length:], train_losses[-max_plot_length:], label='Train Loss')
+        plt.semilogy(epochs[-max_plot_length:], eval_losses[-max_plot_length:], label='Eval Loss')
         plt.legend()
         plt.grid(True, 'both')
         plt.title('Loss')
@@ -211,6 +221,10 @@ def is_number(s):
         return True
     except ValueError:
         return False
+
+def ding():
+    print('Ding!')
+    os.system('cvlc ~/ding.wav --play-and-exit > /dev/null')
 
 
 if __name__ == '__main__':

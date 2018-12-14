@@ -10,17 +10,20 @@ import matplotlib.pyplot as plt
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
+
+        self.bottleneck = 8
+
         self.conv1 = nn.Conv1d(2, 32, 1)
         self.conv2 = nn.Conv1d(32, 64, 1)
         self.conv3 = nn.Conv1d(64, 128, 1)
-        self.conv4 = nn.Conv1d(128, 32, 1)
+        self.conv4 = nn.Conv1d(128, self.bottleneck, 1)
 
         self.bn1 = nn.BatchNorm1d(32)
         self.bn2 = nn.BatchNorm1d(64)
         self.bn3 = nn.BatchNorm1d(128)
-        self.bn4 = nn.BatchNorm1d(32)
+        self.bn4 = nn.BatchNorm1d(self.bottleneck)
 
-        self.fc1 = nn.Linear(32, 256)
+        self.fc1 = nn.Linear(self.bottleneck, 256)
         self.fc2 = nn.Linear(256, 256)
         self.fc3 = nn.Linear(256, 512)
 
@@ -54,9 +57,9 @@ class Net(nn.Module):
                             help='input batch size for training (default: 64)')
         parser.add_argument('--test-batch-size', type=int, default=100, metavar='N',
                             help='input batch size for testing (default: 1000)')
-        parser.add_argument('--epochs', type=int, default=10000, metavar='N',
+        parser.add_argument('--epochs', type=int, default=300, metavar='N',
                             help='number of epochs to train (default: 10)')
-        parser.add_argument('--lr', type=float, default=0.0005, metavar='LR',
+        parser.add_argument('--lr', type=float, default=0.0001, metavar='LR',
                             help='learning rate (default: 0.005)')
         parser.add_argument('--momentum', type=float, default=0.9, metavar='M',
                             help='SGD momentum (default: 0.5)')
@@ -72,13 +75,13 @@ class Net(nn.Module):
                             help='how many batches to wait before saving network')
         parser.add_argument('--plot', type=bool, default=True,
                             help='show plot while training (turn off if using ssh)')
-        parser.add_argument('--train_db_path', type=str, default='../database/db-train.csv',
+        parser.add_argument('--train_db_path', type=str, default='../../database/db-train.csv',
                             help='path to train csv')
-        parser.add_argument('--val_db_path', type=str, default='../database/db-val.csv',
+        parser.add_argument('--val_db_path', type=str, default='../../database/db-val.csv',
                             help='path to val csv')
-        parser.add_argument('--mean_path', type=str, default='../database/mean_data.npy',
+        parser.add_argument('--mean_path', type=str, default='../../database/mean_data.npy',
                             help='path to dataset mean')
-        parser.add_argument('--std_path', type=str, default='../database/std_data.npy',
+        parser.add_argument('--std_path', type=str, default='../../database/std_data.npy',
                             help='path to dataset std')
         parser.add_argument('--n_peaks', type=int, default=256,
                             help='number of points that the network uses')

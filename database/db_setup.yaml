@@ -16,3 +16,5 @@ min_peaks_length: 256
 mfcc_length: 128
 n_proc: 11
 order_sorting: True
+val_audio_path: 'audio/chamber/val'
+train_audio_path: 'audio/chamber/train'
