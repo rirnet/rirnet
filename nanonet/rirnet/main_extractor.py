@@ -37,6 +37,9 @@ class Model:
 
         self.extractor_optimizer = optim.Adam(self.extractor.parameters(), lr=self.extractor_args.lr, betas=(0.9, 0.99), eps=1e-5, weight_decay=0, amsgrad=False)
 
+        self.best_eval_loss = np.inf
+        self.best_eval_loss_latent = np.inf
+
         if self.epoch != 0:
             self.extractor_optimizer.load_state_dict(torch.load(os.path.join(model_dir, '{}_opt_extractor.pth'.format(self.epoch))))
             for g in self.extractor_optimizer.param_groups:
@@ -127,8 +130,18 @@ class Model:
 
         self.mean_eval_loss = np.mean(eval_loss_list)
         self.mean_eval_loss_latent = np.mean(eval_loss_list_latent)
-        print('Latent loss eval:', self.mean_eval_loss_latent)
-        print('Output loss eval:', self.mean_eval_loss)
+
+        if self.mean_eval_loss < self.best_eval_loss:
+            self.best_eval_loss = self.mean_eval_loss
+        if self.mean_eval_loss_latent < self.best_eval_loss_latent:
+            self.best_eval_loss_latent = self.mean_eval_loss_latent
+            
+        print('Best Latent loss eval:', self.best_eval_loss_latent)
+        print('Best Output loss eval:', self.best_eval_loss)
+
+        f = open('results', 'w')
+        f.write('Ex output loss    --- Ex latent loss\n')
+        f.write('{} --- {}'.format(self.best_eval_loss, self.best_eval_loss_latent))
 
     def mse_weighted(self, output, target, weight):
         return torch.sum(weight * (output - target)**2)/output.numel()
@@ -193,14 +206,16 @@ class Model:
             total_time += datetime.now() - datetime.strptime(start_times[-1], frmt)
             plt.title('Trained for {} hours and {:2d} minutes'.format(int(total_time.days/24 + total_time.seconds//3600), (total_time.seconds//60)%60))
 
+        max_plot_length = 100
+
         plt.figure(figsize=(16,9), dpi=110)
         plt.subplot(3,1,1)
         plt.xlabel('Epochs')
         plt.ylabel('Loss ({})'.format(self.extractor_args.loss_function))
-        plt.semilogy(epochs, l1_train_losses, label='Latent Train Loss')
-        plt.semilogy(epochs, l2_train_losses, label='Output Train Loss')
-        plt.semilogy(epochs, eval_losses_latent, label='Latent Eval Loss')
-        plt.semilogy(epochs, eval_losses, label='Output Eval Loss')
+        plt.semilogy(epochs[-max_plot_length:], l1_train_losses[-max_plot_length:], label='Latent Train Loss')
+        plt.semilogy(epochs[-max_plot_length:], l2_train_losses[-max_plot_length:], label='Output Train Loss')
+        plt.semilogy(epochs[-max_plot_length:], eval_losses_latent[-max_plot_length:], label='Latent Eval Loss')
+        plt.semilogy(epochs[-max_plot_length:], eval_losses[-max_plot_length:], label='Output Eval Loss')
         plt.legend()
         plt.grid(True, 'both')
         plt.title('Loss')
@@ -267,10 +282,11 @@ def main(model_dir):
         model.generate_plot()
 
         if interrupted:
-            print(' '+'-'*64, '\nEarly stopping\n', '-'*64)
-            model.stop_session()
-            model.save_model()
             break
+
+    model.stop_session()
+    model.save_model()
+    print(' '+'-'*64, '\nStopping\n', '-'*64)
 
 
 def signal_handler(signal, frame):

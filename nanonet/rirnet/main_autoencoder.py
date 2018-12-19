@@ -99,6 +99,10 @@ class Model:
         print('Current eval loss: \t{}'.format(self.mean_eval_loss))
         print('Best eval loss: \t{}'.format(self.best_loss))
 
+        f = open('results', 'w')
+        f.write('AE val loss\n')
+        f.write('{}'.format(self.best_loss))
+
     def chamfer_loss(self, output, target):
         x,y = output.permute(0,2,1), target.permute(0,2,1)
         B, N, D = x.size()
@@ -203,11 +207,11 @@ def main(model_dir):
         model.generate_plot()
 
         if interrupted:
-            print(' '+'-'*64, '\nEarly stopping\n', '-'*64)
-            model.stop_session()
-            model.save_model()
             break
 
+    model.stop_session()
+    model.save_model()
+    print(' '+'-'*64, '\nStopping\n', '-'*64)
 
 def signal_handler(signal, frame):
     print(' '+'-'*64, '\nTraining will stop after this epoch\n', '-'*64)
