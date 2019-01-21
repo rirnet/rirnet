@@ -44,7 +44,6 @@ class Model:
             self.extractor_optimizer.load_state_dict(torch.load(os.path.join(model_dir, '{}_opt_extractor.pth'.format(self.epoch))))
             for g in self.extractor_optimizer.param_groups:
                 g['lr'] = self.extractor_args.lr
-                g['momentum'] = self.extractor_args.momentum
 
         data_transform = self.extractor.data_transform()
         target_transform = self.extractor.target_transform()

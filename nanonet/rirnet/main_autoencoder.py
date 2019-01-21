@@ -38,7 +38,6 @@ class Model:
 
             for g in self.autoencoder_optimizer.param_groups:
                 g['lr'] = self.autoencoder_args.lr
-                g['momentum'] = self.autoencoder_args.momentum
 
         data_transform = self.autoencoder.data_transform()
         target_transform = self.autoencoder.target_transform()
