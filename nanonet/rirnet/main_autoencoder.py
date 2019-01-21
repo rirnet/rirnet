@@ -56,6 +56,8 @@ class Model:
         autoencoder_loss_list = []
         self.autoencoder.train()
         for batch_idx, (source, target) in enumerate(self.train_loader):
+            if self.epoch < 10:
+                target += torch.rand(self.autoencoder_args.batch_size, 2, 1)
             source, target = source.to(self.device), target.to(self.device)
 
             self.autoencoder_optimizer.zero_grad()
