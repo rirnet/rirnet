@@ -67,10 +67,9 @@ class Model:
 
             autoencoder_loss_list.append(autoencoder_loss.item())
 
-            if batch_idx % self.autoencoder_args.log_interval == 0:
-                print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLoss: {:.4f}'.format(
-                    self.epoch + 1, batch_idx * len(source), len(self.train_loader.dataset),
-                    100. * batch_idx / len(self.train_loader), autoencoder_loss.item()))
+            print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLoss: {:.4f}'.format(
+                self.epoch + 1, batch_idx * len(source), len(self.train_loader.dataset),
+                100. * batch_idx / len(self.train_loader), autoencoder_loss.item()))
         
         self.autoencoder_mean_train_loss = np.mean(autoencoder_loss_list)
 
@@ -99,7 +98,7 @@ class Model:
         print('Current eval loss: \t{}'.format(self.mean_eval_loss))
         print('Best eval loss: \t{}'.format(self.best_loss))
 
-        f = open('results', 'w')
+        f = open('ae_results', 'w')
         f.write('AE val loss\n')
         f.write('{}'.format(self.best_loss))
 
@@ -153,7 +152,7 @@ class Model:
 
         plt.subplot(2,1,1)
         plt.xlabel('Epochs')
-        plt.ylabel('Loss ({})'.format(self.autoencoder_args.loss_function))
+        plt.ylabel('Loss')
         plt.semilogy(epochs[-max_plot_length:], train_losses[-max_plot_length:], label='Train Loss')
         plt.semilogy(epochs[-max_plot_length:], eval_losses[-max_plot_length:], label='Eval Loss')
         plt.legend()

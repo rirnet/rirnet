@@ -57,13 +57,6 @@ class Model:
         self.extractor_mean_train_loss = 0
         self.extractor_mean_eval_loss = 0
 
-        try:
-            getattr(F, self.extractor_args.loss_function)
-        except AttributeError:
-            print('AttributeError! {} is not a valid loss function. The string must exactly match a pytorch loss '
-                  'function'.format(self.extractor_args.loss_function))
-            sys.exit()
-
 
     def train(self):
         self.extractor.train()
@@ -71,7 +64,6 @@ class Model:
         extractor_loss_output_list = []
         for batch_idx, (source, target) in enumerate(self.train_loader):
             torch.cuda.empty_cache()
-            
             
             source, target = source.to(self.device), target.to(self.device)
 
@@ -91,10 +83,9 @@ class Model:
             extractor_loss_latent_list.append(extractor_loss_latent.item())
             extractor_loss_output_list.append(extractor_loss_output.item())
 
-            if batch_idx % self.extractor_args.log_interval == 0:
-                print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLatent loss: {:.6f}\t Output loss: {:.6f}'.format(
-                    self.epoch + 1, batch_idx * len(source), len(self.train_loader.dataset),
-                    100. * batch_idx / len(self.train_loader), extractor_loss_latent.item(), extractor_loss_output.item()))
+            print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLatent loss: {:.6f}\t Output loss: {:.6f}'.format(
+                self.epoch + 1, batch_idx * len(source), len(self.train_loader.dataset),
+                100. * batch_idx / len(self.train_loader), extractor_loss_latent.item(), extractor_loss_output.item()))
         self.extractor_mean_train_loss_latent = np.mean(extractor_loss_latent_list)
         self.extractor_mean_train_loss_output = np.mean(extractor_loss_output_list)
 
@@ -139,7 +130,7 @@ class Model:
         print('Best Latent loss eval:', self.best_eval_loss_latent)
         print('Best Output loss eval:', self.best_eval_loss)
 
-        f = open('results', 'w')
+        f = open('ex_results', 'w')
         f.write('Ex output loss    --- Ex latent loss\n')
         f.write('{} --- {}'.format(self.best_eval_loss, self.best_eval_loss_latent))
 
@@ -211,7 +202,7 @@ class Model:
         plt.figure(figsize=(16,9), dpi=110)
         plt.subplot(3,1,1)
         plt.xlabel('Epochs')
-        plt.ylabel('Loss ({})'.format(self.extractor_args.loss_function))
+        plt.ylabel('Loss')
         plt.semilogy(epochs[-max_plot_length:], l1_train_losses[-max_plot_length:], label='Latent Train Loss')
         plt.semilogy(epochs[-max_plot_length:], l2_train_losses[-max_plot_length:], label='Output Train Loss')
         plt.semilogy(epochs[-max_plot_length:], eval_losses_latent[-max_plot_length:], label='Latent Eval Loss')

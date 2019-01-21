@@ -25,8 +25,8 @@ def preprocess(mfccs):
     delta_1_list, delta_2_list = au.calculate_delta_features(mfccs)
     data_list = [[mfcc, delta_1, delta_2] for mfcc, delta_1, delta_2 in zip(mfccs, delta_1_list, delta_2_list)]
 
-    mean = np.load('../database/mean_data.npy').T
-    std = np.load('../database/std_data.npy').T
+    mean = np.load('../../database/mean.npy').T
+    std = np.load('../../database/std.npy').T
     nw_input = [np.nan_to_num((np.array(data).T - mean)/std).T for data in data_list]
 
     return torch.tensor(nw_input)

@@ -13,6 +13,8 @@ class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
 
+        self.bottleneck = 4
+
         self.conv1 = nn.Conv2d(3, 32, 3, stride=1, padding=1)
         self.conv2 = nn.Conv2d(32, 32, 3, stride=1, padding=1)
         self.conv3 = nn.Conv2d(32, 64, 3, stride=1, padding=1)
@@ -22,10 +24,12 @@ class Net(nn.Module):
         self.conv7 = nn.Conv2d(128, 256, 3, stride=1, padding=1)
 
         self.bn1 = nn.BatchNorm2d(32)
-        self.bn2 = nn.BatchNorm2d(8)
-        self.bn3 = nn.BatchNorm2d(16)
-        self.bn4 = nn.BatchNorm2d(32)
-        self.bn5 = nn.BatchNorm2d(64)
+        self.bn2 = nn.BatchNorm2d(32)
+        self.bn3 = nn.BatchNorm2d(64)
+        self.bn4 = nn.BatchNorm2d(64)
+        self.bn5 = nn.BatchNorm2d(128)
+        self.bn6 = nn.BatchNorm2d(128)
+        self.bn7 = nn.BatchNorm2d(256)
         
         self.maxpool = nn.MaxPool2d(2)
         self.avgpool = nn.AvgPool2d(5,16)
@@ -34,7 +38,7 @@ class Net(nn.Module):
 
         self.fc1 = nn.Linear(256, 256)
         self.fc2 = nn.Linear(256, 256)
-        self.fc3 = nn.Linear(256, 32)
+        self.fc3 = nn.Linear(256, self.bottleneck)
 
         # -------------  Forward Pass  ------------- #
     def forward(self, x):
@@ -64,7 +68,6 @@ class Net(nn.Module):
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
 
-
         return x
 
 
@@ -75,29 +78,21 @@ class Net(nn.Module):
                             help='input batch size for training (default: 64)')
         parser.add_argument('--test-batch-size', type=int, default=100, metavar='N',
                             help='input batch size for testing (default: 1000)')
-        parser.add_argument('--epochs', type=int, default=5000, metavar='N',
+        parser.add_argument('--epochs', type=int, default=700, metavar='N',
                             help='number of epochs to train (default: 10)')
         parser.add_argument('--lr', type=float, default=0.00001, metavar='LR',
                             help='learning rate (default: 0.05)')
-        parser.add_argument('--momentum', type=float, default=0.1, metavar='M',
-                            help='SGD momentum (default: 0.5)')
         parser.add_argument('--no-cuda', action='store_true', default=False,
                             help='disables CUDA training')
         parser.add_argument('--seed', type=int, default=1, metavar='S',
                             help='random seed (default: 1)')
-        parser.add_argument('--loss_function', type=str, default='mse_loss',
-                            help='the loss function to use. Must be EXACTLY as the function is called in pytorch docs')
-        parser.add_argument('--log-interval', type=int, default=1, metavar='N',
-                            help='how many batches to wait before logging training status')
-        parser.add_argument('--save-interval', type=int, default=1000000000,
-                            help='how many batches to wait before saving network')
-        parser.add_argument('--train_db_path', type=str, default='../../database/db-train.csv',
+        parser.add_argument('--train_db_path', type=str, default='../../../database/db-train.csv',
                             help='path to train csv')
-        parser.add_argument('--val_db_path', type=str, default='../../database/db-val.csv',
+        parser.add_argument('--val_db_path', type=str, default='../../../database/db-val.csv',
                             help='path to val csv')
-        parser.add_argument('--mean_path', type=str, default='../../database/mean_data.npy',
+        parser.add_argument('--mean_path', type=str, default='../../../database/mean.npy',
                             help='path to dataset mean')
-        parser.add_argument('--std_path', type=str, default='../../database/std_data.npy',
+        parser.add_argument('--std_path', type=str, default='../../../database/std.npy',
                             help='path to dataset std')
         parser.add_argument('--n_peaks', type=int, default=256,
                             help='number of points that the network uses')
@@ -108,7 +103,6 @@ class Net(nn.Module):
         # -------------  Transform settings  ------------- #
     def data_transform(self):
         data_transform = transforms.Compose([ToNormalized(self.args.mean_path, self.args.std_path), ToTensor()])
-        #data_transform = transforms.Compose([ToTensor()])
         return data_transform
 
     def target_transform(self):
