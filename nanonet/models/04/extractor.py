@@ -30,10 +30,10 @@ class Net(nn.Module):
         self.bn5 = nn.BatchNorm2d(128)
         self.bn6 = nn.BatchNorm2d(128)
         self.bn7 = nn.BatchNorm2d(256)
-        
+
         self.maxpool = nn.MaxPool2d(2)
         self.avgpool = nn.AvgPool2d(5,16)
-        
+
         self.dropout = nn.Dropout(p=0.25)
 
         self.fc1 = nn.Linear(256, 256)
@@ -78,7 +78,7 @@ class Net(nn.Module):
                             help='input batch size for training (default: 64)')
         parser.add_argument('--test-batch-size', type=int, default=100, metavar='N',
                             help='input batch size for testing (default: 1000)')
-        parser.add_argument('--epochs', type=int, default=500, metavar='N',
+        parser.add_argument('--epochs', type=int, default=1010, metavar='N',
                             help='number of epochs to train (default: 10)')
         parser.add_argument('--lr', type=float, default=0.00001, metavar='LR',
                             help='learning rate (default: 0.05)')
