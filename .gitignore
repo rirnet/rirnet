@@ -10,3 +10,6 @@ __pycache__/
 !**/models/*.py
 
 **/rirnet.egg-info
+
+tools/*
+!**/tools/*.py
