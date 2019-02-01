@@ -30,7 +30,7 @@ class Model:
         self.kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
 
         self.autoencoder_optimizer = optim.Adam(self.autoencoder.parameters(), lr=self.autoencoder_args.lr, betas=(0.9, 0.99), eps=1e-5, weight_decay=0, amsgrad=False)
-        
+
         self.best_loss = np.inf
 
         if self.epoch != 0:
@@ -71,7 +71,7 @@ class Model:
             print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLoss: {:.4f}'.format(
                 self.epoch + 1, batch_idx * len(source), len(self.train_loader.dataset),
                 100. * batch_idx / len(self.train_loader), autoencoder_loss.item()))
-        
+
         self.autoencoder_mean_train_loss = np.mean(autoencoder_loss_list)
 
         self.target_im_train = target.cpu().detach().numpy()[0]
@@ -85,14 +85,14 @@ class Model:
                 source, target = source.to(self.device), target.to(self.device)
                 output = self.autoencoder(target, encode=True, decode=True)
                 eval_loss = self.chamfer_loss(output, target)
-                eval_loss_list.append(eval_loss)
+                eval_loss_list.append(eval_loss.item())
 
         self.mean_eval_loss = np.mean(eval_loss_list)
 
         if self.mean_eval_loss < self.best_loss:
             self.best_loss = self.mean_eval_loss
             #ding()
-        
+
         self.target_im_eval = target.cpu().detach().numpy()[0]
         self.output_im_eval = output.cpu().detach().numpy()[0]
 
@@ -147,37 +147,45 @@ class Model:
             total_time += datetime.now() - datetime.strptime(start_times[-1], frmt)
             plt.title('Trained for {} hours and {:2d} minutes'.format(int(total_time.days/24 + total_time.seconds//3600), (total_time.seconds//60)%60))
 
-        plt.figure(figsize=(16,9), dpi=110)
 
-        max_plot_length = 100
+        max_plot_length = 900
 
-        plt.subplot(2,1,1)
-        plt.xlabel('Epochs')
-        plt.ylabel('Loss')
+        fig = plt.figure()
         plt.semilogy(epochs[-max_plot_length:], train_losses[-max_plot_length:], label='Train Loss')
         plt.semilogy(epochs[-max_plot_length:], eval_losses[-max_plot_length:], label='Eval Loss')
         plt.legend()
         plt.grid(True, 'both')
-        plt.title('Loss')
+        plt.title('Autoencoder Loss')
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss')
+        plt.gcf().subplots_adjust(bottom=0.15)
+        plt.savefig('fig/ae_loss.png')
+        plt.savefig('fig/ae_loss.eps')
 
-        plt.subplot(2,2,3)
-        plt.plot(self.target_im_train[0,:], self.target_im_train[1,:], 'o-', linewidth=0.05, markersize=2, label='target')
-        plt.plot(self.output_im_train[0,:], self.output_im_train[1,:], 'x-', linewidth=0.05, markersize=2, label='output')
+        fig = plt.figure()
+        plt.plot(self.target_im_train[0,:], self.target_im_train[1,:], 'o-', linewidth=0.05, markersize=2, label='Target')
+        plt.plot(self.output_im_train[0,:], self.output_im_train[1,:], 'x-', linewidth=0.05, markersize=2, label='Output')
         plt.grid(True)
         plt.legend()
-        plt.title('Train output')
-        #plt.axis([-0.25, 3.25, -0.25, 3.25])
+        plt.title('Autoencoder Train Output')
+        plt.xlabel('Timing')
+        plt.ylabel('-log(Amplitude)')
+        plt.gcf().subplots_adjust(bottom=0.15)
+        plt.savefig('fig/ae_train_output.png')
+        plt.savefig('fig/ae_train_output.eps')
 
-        plt.subplot(2,2,4)
-        plt.plot(self.target_im_eval[0,:], self.target_im_eval[1,:], 'o-', linewidth=0.05, markersize=2, label='target')
-        plt.plot(self.output_im_eval[0,:], self.output_im_eval[1,:], 'x-', linewidth=0.05, markersize=2, label='output')
+        fig = plt.figure()
+        plt.plot(self.target_im_eval[0,:], self.target_im_eval[1,:], 'o-', linewidth=0.05, markersize=2, label='Target')
+        plt.plot(self.output_im_eval[0,:], self.output_im_eval[1,:], 'x-', linewidth=0.05, markersize=2, label='Output')
         plt.grid(True)
         plt.legend()
-        plt.title('Eval output')
-        #plt.axis([-0.25, 3.25, -0.25, 3.25])
-
-        plt.tight_layout()
-        plt.savefig('autoencoder.png')
+        plt.title('Autoencoder Eval Output')
+        plt.xlabel('Timing')
+        plt.ylabel('-log(Amplitude)')
+        plt.ylabel('Loss')
+        plt.gcf().subplots_adjust(bottom=0.15)
+        plt.savefig('fig/ae_eval_output.png')
+        plt.savefig('fig/ae_eval_output.eps')
         plt.close()
 
     def stop_session(self):
@@ -232,4 +240,7 @@ def ding():
 
 
 if __name__ == '__main__':
+    if not os.path.exists('fig'):
+        os.makedirs('fig')
+    misc.set_fig()
     main(sys.argv[1])
