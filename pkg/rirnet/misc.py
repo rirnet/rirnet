@@ -6,8 +6,11 @@ from scipy.optimize import curve_fit
 import torch
 import sys
 import os
+import pylab
+
 import matplotlib.pyplot as plt
 import numpy as np
+import rirnet.acoustic_utils as au
 
 def load_latest(abspath, identifier):
     '''
@@ -25,6 +28,34 @@ def load_latest(abspath, identifier):
         max_epoch = 0
     return model, max_epoch
 
+def reconstruct_rir_conv(time, alpha):
+    fdl = 81
+    fdl2 = (fdl-1) // 2
+    time = (time.astype('double')+1)*1024
+    alpha = np.exp(-alpha).astype('double')
+    signs = np.random.randint(0,2, len(alpha))*2-1
+    #alpha *= signs
+    ir = np.arange(np.ceil((1.05*time.max()) + fdl))*0
+
+    inds = np.argsort(time)
+    time = np.round(time[inds]).astype(int)
+    alpha = alpha[inds]
+
+    print(time)
+
+    peaks = np.zeros(np.max(time)+1)
+    for n, t in enumerate(time):
+        peaks[t] += alpha[n]
+
+    #peaks[time] = alpha
+
+    ir = au.convolve(peaks, np.hanning(fdl)*np.sinc(np.linspace(-41, 41, 81)))
+
+    start_ind = min(np.where(ir > 10**(-10))[0])
+    ir = ir[start_ind:]
+
+    return ir
+
 def reconstruct_rir(time, alpha):
     '''
     Construct a room impulse response from the negative log version that the
@@ -37,7 +68,7 @@ def reconstruct_rir(time, alpha):
     time = (time.astype('double')+1)*1024
     alpha = np.exp(-alpha).astype('double')
     signs = np.random.randint(0,2, len(alpha))*2-1
-    alpha *= signs
+    #alpha *= signs
     ir = np.arange(np.ceil((1.05*time.max()) + fdl))*0
     for i in range(time.shape[0]):
         time_ip = int(np.round(time[i]))
@@ -55,7 +86,7 @@ def fill_peaks(times, alphas, points_omitted, debug=False):
     '''
     def func(t, a, b, c, d):
         return a*np.log(b*(t+c))+d
-    
+
     times[times < 0] = 0
     omit_slice = np.argsort(times)[points_omitted:]
     sliced_sorted_times = times[omit_slice]
@@ -85,9 +116,17 @@ def fill_peaks(times, alphas, points_omitted, debug=False):
 
     if debug:
         plt.figure()
-        plt.plot(times, alphas, 'x', label='input')
-        plt.plot(new_times, new_alphas, 'o', label='filling')
-        plt.plot(filled_times, func(filled_times, *coeff), '.', label='fit')
+        plt.plot(times, alphas, 'o', label='Network output', markersize=0.5)
+        plt.plot(new_times, new_alphas, 'o', label='Data extrapolation', markersize=0.5)
+        plt.plot(filled_times, func(filled_times, *coeff), '.', label='Fitted line', markersize=0.5)
+        legend = plt.legend(prop={'size': 12})
+        legend.legendHandles[0]._legmarker.set_markersize(6)
+        legend.legendHandles[1]._legmarker.set_markersize(6)
+        legend.legendHandles[2]._legmarker.set_markersize(6)
+
+        plt.ylabel(r'$-\log{\alpha}$', fontsize=16)
+        plt.xlabel('time (s)', fontsize=16)
+
         plt.ylim(bottom = -0.25)
 
         plt.figure()
@@ -95,3 +134,22 @@ def fill_peaks(times, alphas, points_omitted, debug=False):
         plt.plot([0, time_simulation_limit],[0,n_in_bins[ind_max_bin]])
         plt.plot([time_simulation_limit, rir_max_time],[0, n_in_bins[ind_max_bin]/time_simulation_limit*rir_max_time])
     return filled_times, filled_alphas
+
+def set_fig():
+    fig_width_pt = 426.8  # Get this from LaTeX using \showthe\columnwidth
+    inches_per_pt = 1.0/72.27               # Convert pt to inch
+    golden_mean = (np.sqrt(5)-1.0)/2.0      # Aesthetic ratio
+    fig_width = fig_width_pt*inches_per_pt  # width in inches
+    fig_height = fig_width*golden_mean      # height in inches
+    fig_size =  [fig_width,fig_height]
+
+    params = {'backend': 'ps',
+              'axes.labelsize': 12,
+              'font.size': 12,
+              'font.family': 'STIXGeneral',
+              'legend.fontsize': 12,
+              'xtick.labelsize': 12,
+              'ytick.labelsize': 12,
+              'text.usetex': True,
+              'figure.figsize': fig_size}
+    pylab.rcParams.update(params)
