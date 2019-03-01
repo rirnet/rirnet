@@ -2,7 +2,7 @@ import numpy as np
 import librosa
 import scipy as sp
 import os
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 def mfcc_to_waveform(mfcc, rate, phase_data=None):
     n_mel = 128
@@ -102,5 +102,5 @@ def split_signal(signal, rate = 44100, segment_length = 44100/4, min_energy=100,
 
 
 def read_wav(path, rate=None):
-    data, rate = librosa.load(path, sr=rate)
+    rate, data = sp.io.wavfile.read(path)
     return data, rate

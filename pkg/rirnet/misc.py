@@ -135,13 +135,13 @@ def fill_peaks(times, alphas, points_omitted, debug=False):
         plt.plot([time_simulation_limit, rir_max_time],[0, n_in_bins[ind_max_bin]/time_simulation_limit*rir_max_time])
     return filled_times, filled_alphas
 
-def set_fig():
+def set_fig(xscale = 1, yscale = 1):
     fig_width_pt = 426.8  # Get this from LaTeX using \showthe\columnwidth
     inches_per_pt = 1.0/72.27               # Convert pt to inch
     golden_mean = (np.sqrt(5)-1.0)/2.0      # Aesthetic ratio
     fig_width = fig_width_pt*inches_per_pt  # width in inches
     fig_height = fig_width*golden_mean      # height in inches
-    fig_size =  [fig_width,fig_height]
+    fig_size =  [fig_width*xscale,fig_height*yscale]
 
     params = {'backend': 'ps',
               'axes.labelsize': 12,
