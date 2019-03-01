@@ -6,3 +6,5 @@ matplotlib
 pandas
 shapely
 pyyaml
+pyroomacoustics
+acoustics
