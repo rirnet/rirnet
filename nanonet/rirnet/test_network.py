@@ -51,11 +51,17 @@ class Model:
                 latent_source = self.extractor(source)
                 output = self.autoencoder(latent_source, encode=False, decode=True)[0].cpu().numpy()
 
-                filled_times_output, filled_alphas_output = misc.fill_peaks(output[0,:], output[1,:])
-                filled_times_target, filled_alphas_target = misc.fill_peaks(target[0,:], target[1,:])
+                filled_times_output, filled_alphas_output = misc.fill_peaks(output[0,:], output[1,:], 10)
+                filled_times_target, filled_alphas_target = misc.fill_peaks(target[0,:], target[1,:], 10)
 
                 output_rir = misc.reconstruct_rir(filled_times_output, filled_alphas_output)
+                output_rir_conv = misc.reconstruct_rir_conv(filled_times_output, filled_alphas_output)
                 target_rir = misc.reconstruct_rir(filled_times_target, filled_alphas_target)
+
+
+                plt.plot(output_rir)
+                plt.plot(output_rir_conv)
+                plt.show()
 
                 rev_signal_output = au.convolve(self.audio_anechoic, output_rir)
                 rev_signal_target = au.convolve(self.audio_anechoic, target_rir)
@@ -65,7 +71,6 @@ class Model:
 
                 au.play_file('output.wav')
                 au.play_file('target.wav')
-
 
 def main():
     model = Model('../models')

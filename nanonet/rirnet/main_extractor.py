@@ -77,7 +77,7 @@ class Model:
 
             output = self.autoenc(latent_source, encode=False, decode=True)
             extractor_loss_output = self.chamfer_loss(output, target)
-            extractor_loss += extractor_loss_output
+            #extractor_loss += extractor_loss_output
             extractor_loss_latent.backward()
             self.extractor_optimizer.step()
 
@@ -306,6 +306,7 @@ class Model:
         plt.gcf().subplots_adjust(bottom=0.15)
         plt.savefig('fig/ex_loss.png')
         plt.savefig('fig/ex_loss.eps')
+        plt.close()
 
         fig = plt.figure()
         plt.xlabel('Epochs')
@@ -319,6 +320,7 @@ class Model:
         plt.gcf().subplots_adjust(bottom=0.15)
         plt.savefig('fig/ex_metrics.png')
         plt.savefig('fig/ex_metrics.eps')
+        plt.close()
 
         fig = plt.figure()
         plt.plot(self.latent_target_im_train, '--ok', linewidth=0.5, markersize=3, label='Target')
@@ -329,6 +331,7 @@ class Model:
         plt.gcf().subplots_adjust(bottom=0.15)
         plt.savefig('fig/ex_train_latent.png')
         plt.savefig('fig/ex_train_latent.eps')
+        plt.close()
 
         fig = plt.figure()
         plt.plot(self.latent_target_im_eval, '--ok', linewidth=0.5, markersize=3, label='Target')
@@ -339,10 +342,11 @@ class Model:
         plt.gcf().subplots_adjust(bottom=0.15)
         plt.savefig('fig/ex_eval_latent.png')
         plt.savefig('fig/ex_eval_latent.eps')
+        plt.close()
 
         fig = plt.figure()
-        plt.plot(self.target_im[:,0], self.target_im[:,1], 'o', linewidth=0.5, markersize=2, label='Target')
-        plt.plot(self.output_im[:,0], self.output_im[:,1], 'x', linewidth=0.5, markersize=2, label='Output')
+        plt.plot(self.target_im[:,0]*44100/1000, self.target_im[:,1], 'o', linewidth=0.5, markersize=2, label='Target')
+        plt.plot(self.output_im[:,0]*44100/1000, self.output_im[:,1], 'x', linewidth=0.5, markersize=2, label='Output')
         plt.grid(True)
         plt.legend()
         plt.title('Extractor Eval Output')
@@ -351,14 +355,15 @@ class Model:
         plt.gcf().subplots_adjust(bottom=0.15)
         plt.savefig('fig/ex_eval_output.png')
         plt.savefig('fig/ex_eval_output.eps')
+        plt.close()
 
         fig = plt.figure()
-        plt.plot(self.target_im[:,0], self.target_im[:,1], 'o', linewidth=0.5, markersize=2, label='Target')
-        plt.plot(self.source_im[:,0], self.source_im[:,1], 'x', linewidth=0.5, markersize=2, label='Output')
+        plt.plot(self.target_im[:,0]*44100/1000, self.target_im[:,1], 'o', linewidth=0.5, markersize=2, label='Target')
+        plt.plot(self.source_im[:,0]*44100/1000, self.source_im[:,1], 'x', linewidth=0.5, markersize=2, label='Output')
         plt.grid(True)
         plt.legend()
         plt.title('Extractor Eval Target Output')
-        plt.xlabel('Timing')
+        plt.xlabel('Time [ms]')
         plt.ylabel('-log(Amplitude)')
         plt.gcf().subplots_adjust(bottom=0.15)
         plt.savefig('fig/ex_eval_target_output.png')
