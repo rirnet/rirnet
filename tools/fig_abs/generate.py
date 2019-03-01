@@ -234,7 +234,7 @@ def build(wav_list):
         x = peaks_list[0][0][:50]/8000
         y = peaks_list[0][1][:50]
         y = (-np.log(y)-min(-np.log(y)))/6
-        ax1.plot(x, y, '--.')
+        ax1.plot(x*44100/1000, y, '--.')
 
     db_setup['absorption'] = [0.3,0.4]
     rir_generator = RirGenerator(db_setup, 1)
@@ -242,7 +242,7 @@ def build(wav_list):
         x = peaks_list[0][0][:50]/8000
         y = peaks_list[0][1][:50]
         y = (-np.log(y)-min(-np.log(y)))/6
-        ax2.plot(x, y, '--.')
+        ax2.plot(x*44100/1000, y, '--.')
 
     db_setup['absorption'] = [0.2,0.4]
     rir_generator = RirGenerator(db_setup, 1)
@@ -250,10 +250,10 @@ def build(wav_list):
         x = peaks_list[0][0][:50]/8000
         y = peaks_list[0][1][:50]
         y = (-np.log(y)-min(-np.log(y)))/6
-        ax3.plot(x, y, '--.')
+        ax3.plot(x*44100/1000, y, '--.')
 
     fig.suptitle('Peak data', y=0.99)
-    ax2.set_xlabel('Timings')
+    ax2.set_xlabel('Time [ms]')
     ax1.set_ylabel('-log(Amplitude)')
     ax1.set_title('$\\alpha = 0.4$')
     ax2.set_title('$\\alpha \\in [0.3, 0.4]$')

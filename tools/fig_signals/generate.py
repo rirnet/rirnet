@@ -207,6 +207,7 @@ def build(wav_list):
         #plt.yticks([])
         plt.gcf().subplots_adjust(bottom=0.15)
         plt.savefig('signal.eps')
+        plt.savefig('signal.png')
         print('saved wav plot')
 
         plt.figure()
@@ -218,6 +219,7 @@ def build(wav_list):
         #plt.yticks([])
         plt.gcf().subplots_adjust(bottom=0.15)
         plt.savefig('rev_signal.eps')
+        plt.savefig('rev_signal.png')
         print('saved rev signal plot')
 
 
@@ -230,19 +232,21 @@ def build(wav_list):
         #plt.yticks([])
         plt.gcf().subplots_adjust(bottom=0.15)
         plt.savefig('irf.eps')
+        plt.savefig('irf.png')
         print('saved irf signal plot')
 
         print(np.shape(peaks_list))
 
         plt.figure()
-        plt.plot(peaks_list[0][0]/8000, (-np.log(peaks_list[0][1])-min(-np.log(peaks_list[0][1])))/6, '.')
+        plt.plot(peaks_list[0][0]/8000*44100/1000, (-np.log(peaks_list[0][1])-min(-np.log(peaks_list[0][1])))/6, '.')
         plt.title('Peak data')
-        plt.xlabel('Timings')
+        plt.xlabel('Time [ms]')
         plt.ylabel('-log(Amplitude)')
         plt.grid()
         #plt.yticks([])
         plt.gcf().subplots_adjust(bottom=0.15)
         plt.savefig('peaks.eps')
+        plt.savefig('peaks.png')
         print('saved irf signal plot')
 
         mfcc_list = waveforms_to_mfccs(waveform_list, db_setup)

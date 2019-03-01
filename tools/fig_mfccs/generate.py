@@ -198,62 +198,12 @@ def build(wav_list):
         wav = wav_list[2]
         waveform_list = convolve_and_pad(wav, h_list)
 
-        plt.figure()
-        plt.plot(wav_list[2][:10000]/np.max(np.abs(wav_list[2])))
-        plt.title('Waveform anechoic signal')
-        plt.xlabel('Sample (n)')
-        plt.ylabel('Amplitude')
-        plt.grid()
-        #plt.yticks([])
-        plt.gcf().subplots_adjust(bottom=0.15)
-        plt.savefig('signal.eps')
-        print('saved wav plot')
-
-        plt.figure()
-        plt.plot(waveform_list[0][:10000]/np.max(np.abs(waveform_list[0])))
-        plt.title('Waveform reverberant signal')
-        plt.xlabel('Sample (n)')
-        plt.ylabel('Amplitude')
-        plt.grid()
-        #plt.yticks([])
-        plt.gcf().subplots_adjust(bottom=0.15)
-        plt.savefig('rev_signal.eps')
-        print('saved rev signal plot')
-
-
-        plt.figure()
-        plt.plot(h_list[0][:10000]/max(h_list[0]))
-        plt.title('Impulse response function')
-        plt.xlabel('Sample (n)')
-        plt.ylabel('Amplitude')
-        plt.grid()
-        #plt.yticks([])
-        plt.gcf().subplots_adjust(bottom=0.15)
-        plt.savefig('irf.eps')
-        print('saved irf signal plot')
-
-        print(np.shape(peaks_list))
-
-        plt.figure()
-        plt.plot(peaks_list[0][0]/8000, (-np.log(peaks_list[0][1])-min(-np.log(peaks_list[0][1])))/6, '.')
-        plt.title('Peak data')
-        plt.xlabel('Timings')
-        plt.ylabel('-log(Amplitude)')
-        plt.grid()
-        #plt.yticks([])
-        plt.gcf().subplots_adjust(bottom=0.15)
-        plt.savefig('peaks.eps')
-        print('saved irf signal plot')
-
         mfcc_list = waveforms_to_mfccs(waveform_list, db_setup)
         delta_1_list, delta_2_list = calculate_delta_features(mfcc_list)
-        plt.close('all')
-
 
         mfcc = mfcc_list[0][2:33,:33]
         delta_1 = delta_1_list[0][2:33,:33]
         delta_2 = delta_2_list[0][2:33,:33]
-
 
         mfcc_im = mfcc - np.min(mfcc)
         mfcc_im /= np.max(mfcc_im)
@@ -267,11 +217,11 @@ def build(wav_list):
         fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, sharey = True, sharex = True)
 
         ax1.title.set_text('MFCC')
-        ax2.title.set_text('Delta 1')
-        ax3.title.set_text('Delta 2')
+        ax2.title.set_text('First-order delta')
+        ax3.title.set_text('Second-order delta')
         ax4.title.set_text('RGB')
 
-        im1 = ax1.imshow(mfcc, origin='lower', interpolation='None', extent=[0,33,2,33])
+        im1 = ax1.imshow(mfcc, origin='lower', interpolation='None', extent=[0,33*11.61,2,33], aspect='auto', cmap = 'Greys')
         divider = make_axes_locatable(ax1)
         cax = divider.append_axes('right', size='5%', pad=0.05)
         cbar = fig.colorbar(im1, cax=cax, orientation='vertical')
@@ -280,7 +230,7 @@ def build(wav_list):
         ax1.set_xticks([0, 32], minor=False)
         ax1.set_yticks([2, 32], minor=False)
 
-        im2 = ax2.imshow(delta_1, origin='lower', interpolation='None', extent=[0,33,2,33])
+        im2 = ax2.imshow(delta_1, origin='lower', interpolation='None', extent=[0,33*11.61,2,33], aspect='auto', cmap = 'Greys')
         divider = make_axes_locatable(ax2)
         cax = divider.append_axes('right', size='5%', pad=0.05)
         cbar = fig.colorbar(im2, cax=cax, orientation='vertical')
@@ -289,7 +239,7 @@ def build(wav_list):
         ax2.set_xticks([0, 32], minor=False)
         ax2.set_yticks([2, 32], minor=False)
 
-        im3 = ax3.imshow(delta_2, origin='lower', interpolation='None', extent=[0,33,2,33])
+        im3 = ax3.imshow(delta_2, origin='lower', interpolation='None', extent=[0,33*11.61,2,33], aspect='auto', cmap = 'Greys')
         divider = make_axes_locatable(ax3)
         cax = divider.append_axes('right', size='5%', pad=0.05)
         cbar = fig.colorbar(im3, cax=cax, orientation='vertical')
@@ -298,18 +248,23 @@ def build(wav_list):
         ax3.set_xticks([0, 32], minor=False)
         ax3.set_yticks([2, 32], minor=False)
 
-        im4 = ax4.imshow(image, origin='lower', interpolation='None', extent=[0,33,2,33])
+        im4 = ax4.imshow(image, origin='lower', interpolation='None', extent=[0,33*11.61,2,33], aspect='auto')
         divider = make_axes_locatable(ax4)
-        cax = divider.append_axes('right', size='5%', pad=0.05)
-        cbar = fig.colorbar(im4, cax=cax, orientation='vertical')
-        cbar.set_ticks([int(0),int(1)])
+        #cax = divider.append_axes('right', size='5%', pad=0.05)
+        #cbar = fig.colorbar(im4, cax=cax, orientation='vertical')
+        #cbar.set_ticks([int(0),int(1)])
         ax4.tick_params(axis=u'both', which=u'both',length=0)
-        ax4.set_xticks([0, 32], minor=False)
+        ax4.set_xticks([0, 380], minor=False)
         ax4.set_yticks([2, 32], minor=False)
 
+        ax1.set_ylabel('Feature')
+        ax3.set_ylabel('Feature')
+        ax3.set_xlabel('Time [ms]')
+        ax4.set_xlabel('Time [ms]')
         plt.tight_layout()
 
         plt.savefig('mfcc.eps')
+        plt.savefig('mfcc.png')
 
 def main():
 
