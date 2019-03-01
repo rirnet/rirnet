@@ -69,24 +69,19 @@ class Model:
         for batch_idx, (source, target) in enumerate(self.train_loader):
             torch.cuda.empty_cache()
 
-
             source, target = source.to(self.device), target.to(self.device)
 
-            latent_target = self.autoenc(target, self.epoch, encode=True, decode=False)
+            latent_target = self.autoenc(target, encode=True, decode=False)
             latent_source = self.extractor(source)
             extractor_loss = 0
             self.extractor_optimizer.zero_grad()
-
             extractor_loss_latent = self.mse_weighted(latent_source, latent_target, 10)
-            extractor_loss_latent.backward()
+            extractor_loss += extractor_loss_latent
 
-            extractor_loss += extractor_loss_latent/2
-            output = self.autoenc(latent_source, self.epoch, encode=False, decode=True)
+            output = self.autoenc(latent_source, encode=False, decode=True)
             extractor_loss_output = self.chamfer_loss(output, target)
-            extractor_loss += extractor_loss_output
-
-            #extractor_loss.backward()
-
+            #extractor_loss += extractor_loss_output
+            extractor_loss_latent.backward()
             self.extractor_optimizer.step()
 
             extractor_loss_latent_list.append(extractor_loss_latent.item())
@@ -96,7 +91,7 @@ class Model:
                 print('Train Epoch: {:5d} [{:5d}/{:5d} ({:4.1f}%)]\tLatent loss: {:.6f}\t Output loss: {:.6f}'.format(
                     self.epoch + 1, batch_idx * len(source), len(self.train_loader.dataset),
                     100. * batch_idx / len(self.train_loader), extractor_loss_latent.item(), extractor_loss_output.item()))
-        self.extractor_mean_train_loss_latent = np.mean(extractor_loss_latent_list)*10
+        self.extractor_mean_train_loss_latent = np.mean(extractor_loss_latent_list)
         self.extractor_mean_train_loss_output = np.mean(extractor_loss_output_list)
 
         self.latent_target_im_train = latent_target.cpu().detach().numpy()[0]
@@ -111,13 +106,13 @@ class Model:
                 torch.cuda.empty_cache()
                 source, target = source.to(self.device), target.to(self.device)
 
-                latent_target = self.autoenc(target, self.epoch, encode=True, decode=False)
+                latent_target = self.autoenc(target, encode=True, decode=False)
                 latent_source = self.extractor(source)
 
                 eval_loss_list_latent.append(self.mse_weighted(latent_source, latent_target, 10).item())
 
-                output = self.autoenc(latent_source, self.epoch, encode=False, decode=True)
-                output_source = self.autoenc(latent_target, self.epoch, encode=False, decode=True)
+                output = self.autoenc(latent_source, encode=False, decode=True)
+                output_source = self.autoenc(latent_target, encode=False, decode=True)
                 extractor_loss = self.chamfer_loss(output, target)
 
                 self.rir_im = []
@@ -133,7 +128,7 @@ class Model:
         eval_loss_list = np.sort(eval_loss_list)
         self.mean_eval_loss = np.mean(eval_loss_list[:-1])
         eval_loss_list_latent = np.sort(eval_loss_list_latent)
-        self.mean_eval_loss_latent = np.mean(eval_loss_list_latent[:-1])*10
+        self.mean_eval_loss_latent = np.mean(eval_loss_list_latent[:-1])
         print('Latent loss eval:', self.mean_eval_loss_latent)
         print('Output loss eval:', self.mean_eval_loss)
 

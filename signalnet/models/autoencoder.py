@@ -29,14 +29,14 @@ class Net(nn.Module):
         self.fc3 = nn.Linear(256, 512)
 
 
-    def forward(self, x, epoch, encode=False, decode=False):
+    def forward(self, x, encode=False, decode=False):
         if encode:
-            x = self.encode(x, epoch)
+            x = self.encode(x)
         if decode:
             x = self.decode(x)
         return x
 
-    def encode(self, x, epoch):
+    def encode(self, x):
         x = self.bn1(F.relu(self.conv1(x)))
         x = self.bn2(F.relu(self.conv2(x)))
         x = self.bn3(F.relu(self.conv3(x)))
