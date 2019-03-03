@@ -11,7 +11,7 @@ __pycache__/
 
 **/rirnet.egg-info
 
-tools/*
+
 !**/tools/*.py
 
 wip/*npy
