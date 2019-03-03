@@ -1,8 +1,8 @@
 import numpy as np
 import shapely.geometry as geo
 import pyroomacoustics as pra
-
-
+import acoustics as ac
+import warnings
 def generate_from_dict(db_setup):
     np.random.seed()
     min_side, max_side = db_setup['side']
@@ -114,3 +114,52 @@ def subtract_box(box1, box1_x2, box1_y2, min_side, max_side):
     floor_shape = box1.difference(box2)
 
     return floor_shape
+
+
+def generate_pos_in_rect(x, y, z, n_pos):
+    """
+    Generates and returns n_pos positions 3d positions that are guaranteed to be within the given rectangle and at
+    least 0.5 units from surfaces. Assumes rectangles are [x,y,z] > [2.5,2.5,2.5].
+
+    Returns list of np.arrays of 3d positions
+    """
+
+    return np.random.rand(n_pos, 3)*[x, y, z]*0.6+0.5
+
+
+def get_absorption_by_index(abs_coeffs, i):
+    coeffs = {'east': abs_coeffs['east'][i], 'west': abs_coeffs['west'][i], 'north': abs_coeffs['north'][i],
+              'south': abs_coeffs['south'][i], 'floor': abs_coeffs['floor'][i], 'ceiling': abs_coeffs['ceiling'][i]}
+    return coeffs
+
+
+def generate_multiband_rirs(x, y, z, n_mics, fs, max_order, abs_coeffs, n_fft):
+
+    warnings.filterwarnings("ignore", category=FutureWarning)
+
+    source_pos = generate_pos_in_rect(x, y, z, 1)[0]
+
+    mic_pos = generate_pos_in_rect(x, y, z, n_mics)
+    mic_array = pra.MicrophoneArray(mic_pos.T, fs=fs)
+
+    multiband_rir_batch = np.zeros([n_mics, fs//2])
+
+    center_freqs = [125, 250, 500, 1000, 2000, 4000, 4000*np.sqrt(2)]
+    for i in range(7):
+        coeffs = get_absorption_by_index(abs_coeffs, i)
+        room = pra.ShoeBox([x, y, z], fs=fs, max_order=max_order, absorption=coeffs)
+        room.add_source(source_pos)
+        room.add_microphone_array(mic_array)
+        room.compute_rir()
+        rir_batch = []
+
+        for j, rir in enumerate(room.rir):
+            rir = rir[0]
+            if(i < 6):
+                rir = ac.signal.octavepass(rir, center_freqs[i], fs, 1, order=8)
+            else:
+                rir = ac.signal.highpass(rir, center_freqs[i], fs, order=8)
+            rir_batch.append(rir[:fs//2])
+
+        multiband_rir_batch += np.array(rir_batch)
+    return multiband_rir_batch

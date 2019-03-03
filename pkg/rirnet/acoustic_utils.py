@@ -102,5 +102,7 @@ def split_signal(signal, rate = 44100, segment_length = 44100/4, min_energy=100,
 
 
 def read_wav(path, rate=None):
-    rate, data = sp.io.wavfile.read(path)
-    return data, rate
+    signal_rate, signal = sp.io.wavfile.read(path)
+    if rate is not None:
+        signal = librosa.core.resample(signal, signal_rate, rate)
+    return signal, rate
