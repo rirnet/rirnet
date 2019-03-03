@@ -13,3 +13,5 @@ __pycache__/
 
 tools/*
 !**/tools/*.py
+
+wip/*npy
