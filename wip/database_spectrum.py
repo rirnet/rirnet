@@ -27,8 +27,6 @@ def get_absorption_by_index(abs_coeffs, i):
 
 def generate_multiband_spectrum(x, y, z, n_mics, fs, max_order, abs_coeffs, n_fft):
 
-    n_freq_bins = n_fft//2+1
-    n_time_samples = 2*fs//n_fft+1
     source_pos = generate_pos_in_rect(x, y, z, 1)[0]
 
     mic_pos = generate_pos_in_rect(x, y, z, n_mics)
@@ -37,7 +35,7 @@ def generate_multiband_spectrum(x, y, z, n_mics, fs, max_order, abs_coeffs, n_ff
     multiband_spectrum_batch = []
     multiband_rir_batch = np.zeros([n_mics, fs//2])
 
-    center_freqs = [125, 250, 500, 1000, 2000, 4000, 5600]
+    center_freqs = [125, 250, 500, 1000, 2000, 4000, 4000*np.sqrt(2)]
     for i in range(7):
         coeffs = get_absorption_by_index(abs_coeffs, i)
         room = pra.ShoeBox([x, y, z], fs=fs, max_order=max_order, absorption=coeffs)
@@ -48,13 +46,18 @@ def generate_multiband_spectrum(x, y, z, n_mics, fs, max_order, abs_coeffs, n_ff
 
         for j, rir in enumerate(room.rir):
             rir = rir[0]
-            rir = ac.signal.octavepass(rir, center_freqs[i], fs, 1, order=8)
+            if(i < 6):
+                rir = ac.signal.octavepass(rir, center_freqs[i], fs, 1, order=8)
+            else:
+                rir = ac.signal.highpass(rir, center_freqs[i], fs, order=8)
             rir_batch.append(rir[:fs//2])
 
         multiband_rir_batch += np.array(rir_batch)
 
     for rir in multiband_rir_batch:
         f_bins, t_bins, stft = sp.signal.stft(rir, fs=fs, nfft=n_fft, nperseg=n_fft)
+        print(t_bins)
+        print(f_bins)
         multiband_spectrum_batch.append(np.abs(stft))
 
     return multiband_spectrum_batch
@@ -109,6 +112,6 @@ def generate_spectrum(x_max, y_max, z_max, batch, mat_gen, fs=2**14, max_order=8
 
 
 materials = Materials('materials.csv', 'surfaces.csv')
-plt.imshow(generate_spectrum(10, 5, 3, 1, materials, n_fft=512)[0])
+plt.imshow(generate_spectrum(10, 5, 3, 1, materials, n_fft=128)[0])
 plt.show()
 
