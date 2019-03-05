@@ -41,7 +41,9 @@ class MaterialEngine:
         with open(csv_path, 'r') as csvfile:
             reader = csv.reader(csvfile, delimiter=',')
             for row in reader:
-                self.materials[row[0]] = np.array(row[1:], float)
+                data = np.array(row[1:], float)
+                assert len(data) is 7, '{} does not have the correct number of coefficients'.format(row[0])
+                self.materials[row[0]] = data
 
     def add_materials_to_surfaces(self, csv_path):
         with open(csv_path, 'r') as csvfile:
@@ -101,6 +103,7 @@ def init_queue(n_proc, args):
 
 
 def main():
+    n_samples = 1000
     n_proc = 6
     x_max = 10
     y_max = 10
@@ -110,14 +113,15 @@ def main():
     max_order = 80
     fs = 16000
     material_engine = MaterialEngine('materials.csv', 'surfaces.csv')
-    sound_engine = SoundEngine('/home/felix/rirnet/audio/chamber/train')
+    sound_engine = SoundEngine('/home/eriklarsson/rirnet/audio/chamber/train')
+    save_folder_path = '/home/eriklarsson/rirnet/db_fft/train'
+    csv_filename = 'train.csv'
     args = [x_max, y_max, z_max, n_mics, n_fft, max_order, fs,  material_engine, sound_engine]
     queue, processes = init_queue(n_proc, args)
-    runs = 0
 
-    with open('list.csv', 'w') as csvfile:
+    with open(os.path.join(save_folder_path,'../',csv_filename), 'w') as csvfile:
         writer = csv.writer(csvfile, delimiter=',')
-        while(1):
+        for run in range(n_samples//n_mics):
             try:
                 rev_sig_spectrograms, rir_spectrograms = queue.get(timeout=20)
                 p = processes.pop(0)
@@ -126,15 +130,15 @@ def main():
                 p = processes[-1]
                 p.start()
 
-                n_per_run = np.shape(rir_spectrograms)[0]
-                for i in range(n_per_run):
-                    rev_filename = '{}_rev.npy'.format(n_per_run*runs+i)
-                    rir_filename = '{}_rir.npy'.format(n_per_run*runs+i)
-                    np.save(rev_filename, rev_sig_spectrograms[i])
-                    np.save(rir_filename, rir_spectrograms[i])
-                    writer.writerow([rev_filename, rir_filename])
-                runs += 1
-                print('Produced: ', runs*n_per_run, end="\r")
+                for sample in range(n_mics):
+                    rev_filename = '{}_rev.npy'.format(n_mics*run+sample)
+                    rir_filename = '{}_rir.npy'.format(n_mics*run+sample)
+                    rev_path = os.path.join(save_folder_path,rev_filename)
+                    rir_path = os.path.join(save_folder_path,rir_filename)
+                    np.save(rev_path, rev_sig_spectrograms[sample])
+                    np.save(rir_path, rir_spectrograms[sample])
+                    writer.writerow([rev_path, rir_path])
+                print('Produced: ', run*n_mics, end="\r")
 
             except Empty or TimeoutError:
                 print('overlong time, resetting queue')
