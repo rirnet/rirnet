@@ -103,7 +103,7 @@ def init_queue(n_proc, args):
 
 
 def main():
-    n_samples = 1000
+    n_samples = 20
     n_proc = 6
     x_max = 10
     y_max = 10
@@ -113,8 +113,8 @@ def main():
     max_order = 80
     fs = 16000
     material_engine = MaterialEngine('materials.csv', 'surfaces.csv')
-    sound_engine = SoundEngine('/home/eriklarsson/rirnet/audio/chamber/train')
-    save_folder_path = '/home/eriklarsson/rirnet/db_fft/train'
+    sound_engine = SoundEngine('/home/eriklarsson/rirnet/audio/chamber/val')
+    save_folder_path = '/home/eriklarsson/rirnet/db_fft/val'
     csv_filename = 'train.csv'
     args = [x_max, y_max, z_max, n_mics, n_fft, max_order, fs,  material_engine, sound_engine]
     queue, processes = init_queue(n_proc, args)
@@ -145,6 +145,10 @@ def main():
                 p = processes.pop(0)
                 p.terminate()
                 queue, processes = init_queue(n_proc, args)
+
+    for p in processes:
+        p.terminate()
+    print('\nAll done!')
 
 if __name__ == '__main__':
     main()
