@@ -13,10 +13,10 @@ class RirnetDatabase(Dataset):
     def __init__(self, is_training, args, data_transform=None, target_transform=None):
         if is_training:
             csv_file = args.train_db_path
-            self.folder = '../../db_fft/train/'
+            self.folder = '../../db_fft_horder/train/'
         else:
             csv_file = args.val_db_path
-            self.folder = '../..//db_fft/val/'
+            self.folder = '../../db_fft_horder/val/'
         database = pd.read_csv(csv_file)
 
         self.dataset = database
@@ -28,14 +28,13 @@ class RirnetDatabase(Dataset):
 
 
     def __getitem__(self, idx):
-        np.random.seed()
         data_path = self.dataset.iloc[idx, 0]
         target_path = self.dataset.iloc[idx, 1]
-        data = np.load(os.path.join(self.folder, data_path))
-        target = np.load(os.path.join(self.folder, target_path))
+        data = np.load(data_path)
+        target = np.load(target_path)
 
         if self.data_transform and self.target_transform:
-            data = data/np.max(data)
+            data = -np.log(data)
             data = self.data_transform(data)
             target = target/np.max(target)
             target = self.target_transform(target)

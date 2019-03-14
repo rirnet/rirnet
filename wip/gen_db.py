@@ -13,22 +13,25 @@ import os
 import glob
 
 class SoundEngine:
-    def __init__(self, audio_folder_path):
-        self.audio_list = self.load_audio(audio_folder_path)
+
+    def __init__(self, audio_folder_path, fs):
+        self.audio_list = self.load_audio(audio_folder_path, fs)
 
     def random(self):
         return random.choice(self.audio_list)
 
-    def load_audio(self, audio_folder_path):
+    def load_audio(self, audio_folder_path, fs):
         audio_list = []
         audio_filename_list = glob.glob(os.path.join(audio_folder_path, '*.wav'))
         for audio_filename in audio_filename_list:
             audio_file_path = os.path.join(audio_folder_path, audio_filename)
-            audio = au.normalize(au.read_wav(audio_file_path)[0])
+            audio = au.normalize(au.read_wav(audio_file_path, fs)[0])
             audio_list.append(audio)
         return audio_list
 
+
 class MaterialEngine:
+    
     def __init__(self, materials_csv_path, surfaces_csv_path):
         self.materials = {}
         self.wall = []
@@ -68,19 +71,19 @@ class MaterialEngine:
 
 
 def generate_spectrograms(queue, args):
-    x_max, y_max, z_max, n_mics, n_fft, max_order, fs, material_engine, sound_engine = args
+    x_max, y_max, z_max, n_mics, n_per_seg, max_order, fs, material_engine, sound_engine = args
     np.random.seed()
     x, y, z = np.random.rand(3)*(np.array([x_max, y_max, z_max])-2.5)+2.5
     absorption = material_engine.random()
     an_sig = sound_engine.random()
 
-    rir_list = rg.generate_multiband_rirs(x, y, z, n_mics, fs, max_order, absorption, n_fft)
+    rir_list = rg.generate_multiband_rirs(x, y, z, n_mics, fs, max_order, absorption)
     rev_sig_spectrograms = []
     rir_spectrograms = []
     for rir in rir_list:
         rev_sig = au.convolve(rir, an_sig)
-        _,_,rir_spectrogram = sp.signal.stft(rir, fs=fs, nfft=n_fft, nperseg=n_fft)
-        _,_,rev_sig_spectrogram = sp.signal.stft(rev_sig, fs=fs, nfft=n_fft, nperseg=n_fft)
+        _,_,rir_spectrogram = sp.signal.stft(rir, fs=fs, nperseg=n_per_seg)
+        _,_,rev_sig_spectrogram = sp.signal.stft(rev_sig, fs=fs, nperseg=n_per_seg)
         rev_sig_spectrograms.append(np.abs(rev_sig_spectrogram))
         rir_spectrograms.append(np.abs(rir_spectrogram))
 
@@ -103,20 +106,20 @@ def init_queue(n_proc, args):
 
 
 def main():
-    n_samples = 20
+    n_samples = 1000
     n_proc = 6
     x_max = 10
     y_max = 10
     z_max = 3
     n_mics = 10
-    n_fft = 128
+    n_per_seg = 128
     max_order = 80
-    fs = 16000
+    fs = 16384
     material_engine = MaterialEngine('materials.csv', 'surfaces.csv')
-    sound_engine = SoundEngine('/home/eriklarsson/rirnet/audio/chamber/val')
-    save_folder_path = '/home/eriklarsson/rirnet/db_fft/val'
-    csv_filename = 'train.csv'
-    args = [x_max, y_max, z_max, n_mics, n_fft, max_order, fs,  material_engine, sound_engine]
+    sound_engine = SoundEngine('/home/eriklarsson/rirnet/audio/chamber/val', fs)
+    save_folder_path = '/home/eriklarsson/rirnet/db_fft_horder/val'
+    csv_filename = 'val.csv'
+    args = [x_max, y_max, z_max, n_mics, n_per_seg, max_order, fs,  material_engine, sound_engine]
     queue, processes = init_queue(n_proc, args)
 
     with open(os.path.join(save_folder_path,'../',csv_filename), 'w') as csvfile:
