@@ -31,13 +31,6 @@ class Model:
 
         self.net_optimizer = optim.Adam(self.net.parameters(), lr=self._args.lr, betas=(0.9, 0.99), eps=1e-5, weight_decay=0, amsgrad=False)
 
-        if self.epoch != 0:
-            self.net_optimizer.load_state_dict(torch.load(os.path.join(model_dir, '{}_opt.pth'.format(self.epoch))))
-
-            for g in self.net_optimizer.param_groups:
-                g['lr'] = self._args.lr
-                g['momentum'] = self._args.momentum
-
         data_transform = self.net.data_transform()
         target_transform = self.net.target_transform()
 
@@ -57,7 +50,7 @@ class Model:
             self.net_optimizer.zero_grad()
             loss = 0
             output = self.net(source).squeeze()
-            loss = F.mse_loss(output, target[:,:,:95])*100 
+            loss = F.mse_loss(output, target)*100 
             loss.backward()
             self.net_optimizer.step()
 
@@ -81,7 +74,7 @@ class Model:
             for batch_idx, (source, target) in enumerate(self.eval_loader):
                 source, target = source.to(self.device), target.to(self.device)
                 output = self.net(source).squeeze()
-                eval_loss = F.mse_loss(output, target[:,:,:95])*100
+                eval_loss = F.mse_loss(output, target)*100
                 eval_loss_list.append(eval_loss.item())
 
         self.target_im_eval = target.cpu().detach().numpy()[0]
@@ -134,26 +127,24 @@ class Model:
         plt.grid(True, 'both')
         plt.title('Loss')
 
-        print(np.max(self.output_im_train))
-        
         plt.subplot(2,3,2)
-        plt.imshow(self.output_im_train, label='output', vmin = 0, vmax = 1)
+        plt.imshow(self.output_im_train, label='output')
         plt.title('Train output')
         
         plt.subplot(2,3,3)
-        plt.imshow(self.target_im_train, label='target', vmin = 0, vmax = 1)
+        plt.imshow(self.target_im_train, label='target')
         plt.title('Train target')
 
         plt.subplot(2,3,4)
-        plt.imshow(self.source_im_train, label='target', vmin = 0, vmax = 1)
+        plt.imshow(self.source_im_train, label='target')
         plt.title('Train input')
 
         plt.subplot(2,3,5)
-        plt.imshow(self.output_im_eval, label='output', vmin = 0, vmax = 1)
+        plt.imshow(self.output_im_eval, label='output')
         plt.title('Eval output')
         
         plt.subplot(2,3,6)
-        plt.imshow(self.target_im_eval, label='target', vmin = 0, vmax = 1)
+        plt.imshow(self.target_im_eval, label='target')
         plt.title('Eval target')
 
         plt.tight_layout()

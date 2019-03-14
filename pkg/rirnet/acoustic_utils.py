@@ -81,9 +81,10 @@ def save_wav(path, data, rate = 44100, norm=None):
     librosa.output.write_wav(path, data, rate, norm)
 
 
-def split_signal(signal, rate = 44100, segment_length = 44100/4, min_energy=100, max_energy=2, debug=False):
-    sound_starts = librosa.onset.onset_detect(signal, sr=rate, backtrack=True)*512
+def split_signal(signal, rate = 44100, segment_length = 44100//4, min_energy=100, max_energy=2, hop_length=512, debug=False):
+    sound_starts = librosa.onset.onset_detect(signal[:-segment_length], sr=rate, backtrack=False, hop_length=hop_length)*hop_length-256
     if debug:
+        import matplotlib.pyplot as plt
         plt.figure()
         plt.plot(signal)
         plt.vlines(sound_starts, -1, 1)
@@ -103,6 +104,7 @@ def split_signal(signal, rate = 44100, segment_length = 44100/4, min_energy=100,
 
 def read_wav(path, rate=None):
     signal_rate, signal = sp.io.wavfile.read(path)
+    signal = signal/np.max(np.abs(signal))
     if rate is not None:
         signal = librosa.core.resample(signal, signal_rate, rate)
     return signal, rate

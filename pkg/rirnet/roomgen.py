@@ -133,7 +133,7 @@ def get_absorption_by_index(abs_coeffs, i):
     return coeffs
 
 
-def generate_multiband_rirs(x, y, z, n_mics, fs, max_order, abs_coeffs, n_fft):
+def generate_multiband_rirs(x, y, z, n_mics, fs, max_order, abs_coeffs):
 
     warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -156,9 +156,9 @@ def generate_multiband_rirs(x, y, z, n_mics, fs, max_order, abs_coeffs, n_fft):
         for j, rir in enumerate(room.rir):
             rir = rir[0]
             if(i < 6):
-                rir = ac.signal.octavepass(rir, center_freqs[i], fs, 1, order=8)
+                rir = ac.signal.octavepass(rir, center_freqs[i], fs, 1, order=32)
             else:
-                rir = ac.signal.highpass(rir, center_freqs[i], fs, order=8)
+                rir = ac.signal.highpass(rir, center_freqs[i], fs, order=32)
             rir_batch.append(rir[:fs//2])
 
         multiband_rir_batch += np.array(rir_batch)
