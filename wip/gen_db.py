@@ -31,7 +31,7 @@ class SoundEngine:
 
 
 class MaterialEngine:
-    
+
     def __init__(self, materials_csv_path, surfaces_csv_path):
         self.materials = {}
         self.wall = []
@@ -74,10 +74,12 @@ def generate_spectrograms(queue, args):
     x_max, y_max, z_max, n_mics, n_per_seg, max_order, fs, material_engine, sound_engine = args
     np.random.seed()
     x, y, z = np.random.rand(3)*(np.array([x_max, y_max, z_max])-2.5)+2.5
+    mic_pos = rg.generate_pos_in_rect(x, y, z, n_mics)
+    source_pos = rg.generate_pos_in_rect(x, y, z, 1)[0]
     absorption = material_engine.random()
     an_sig = sound_engine.random()
 
-    rir_list = rg.generate_multiband_rirs(x, y, z, n_mics, fs, max_order, absorption)
+    rir_list = rg.generate_multiband_rirs(x, y, z, mic_pos, source_pos, fs, max_order, absorption)
     rev_sig_spectrograms = []
     rir_spectrograms = []
     for rir in rir_list:
@@ -106,6 +108,7 @@ def init_queue(n_proc, args):
 
 
 def main():
+    sort = 'val'
     n_samples = 1000
     n_proc = 6
     x_max = 10
@@ -116,9 +119,9 @@ def main():
     max_order = 80
     fs = 16384
     material_engine = MaterialEngine('materials.csv', 'surfaces.csv')
-    sound_engine = SoundEngine('/home/eriklarsson/rirnet/audio/chamber/val', fs)
-    save_folder_path = '/home/eriklarsson/rirnet/db_fft_horder/val'
-    csv_filename = 'val.csv'
+    sound_engine = SoundEngine('/home/felix/rirnet/audio/chamber/'+sort, fs)
+    save_folder_path = '/home/felix/rirnet/db_fft/'+sort
+    csv_filename = sort+'.csv'
     args = [x_max, y_max, z_max, n_mics, n_per_seg, max_order, fs,  material_engine, sound_engine]
     queue, processes = init_queue(n_proc, args)
 

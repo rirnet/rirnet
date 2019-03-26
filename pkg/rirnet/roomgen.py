@@ -133,16 +133,13 @@ def get_absorption_by_index(abs_coeffs, i):
     return coeffs
 
 
-def generate_multiband_rirs(x, y, z, n_mics, fs, max_order, abs_coeffs):
+def generate_multiband_rirs(x, y, z, mic_pos, source_pos, fs, max_order, abs_coeffs):
 
     warnings.filterwarnings("ignore", category=FutureWarning)
 
-    source_pos = generate_pos_in_rect(x, y, z, 1)[0]
-
-    mic_pos = generate_pos_in_rect(x, y, z, n_mics)
     mic_array = pra.MicrophoneArray(mic_pos.T, fs=fs)
 
-    multiband_rir_batch = np.zeros([n_mics, fs//2])
+    multiband_rir_batch = np.zeros([len(mic_pos), fs//2])
 
     center_freqs = [125, 250, 500, 1000, 2000, 4000, 4000*np.sqrt(2)]
     for i in range(7):
