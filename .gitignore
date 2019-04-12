@@ -15,3 +15,5 @@ tools/*
 !**/tools/*.py
 
 wip/*npy
+wip/*png
+wip/*wav
