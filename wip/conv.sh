@@ -1,4 +1,4 @@
-cd cases
+cd cases_real
 for i in *.wav ; do
   echo $i
   b=`basename $i .wav`
