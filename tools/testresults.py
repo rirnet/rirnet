@@ -19,7 +19,8 @@ def main():
     plt.xlabel('Case number')
     plt.ylabel('Respondee')
     plt.imshow(data, cmap=cmap, extent=[0.5,n_rooms+0.5,0.5,n_respondees+0.5], origin='lower')
-    plt.title('Test 1')
+    conf = round(np.sum(np.sum(data))/np.size(data)*100, 1)
+    plt.title('Test 1, confusion = {} %'.format(conf))
     plt.ion()
     plt.show()
     plt.ioff()
@@ -35,7 +36,8 @@ def main():
     plt.xlabel('Case number')
     plt.ylabel('Respondee')
     plt.imshow(data, cmap=cmap, extent=[0.5,n_rooms+0.5,0.5,n_respondees+0.5], origin='lower')
-    plt.title('Test 2')
+    conf = round(np.sum(np.sum(data))/np.size(data)*100, 1)
+    plt.title('Test 2, confusion = {} %'.format(conf))
     plt.show()
 
 
