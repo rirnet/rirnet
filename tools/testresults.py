@@ -38,6 +38,23 @@ def main():
     plt.imshow(data, cmap=cmap, extent=[0.5,n_rooms+0.5,0.5,n_respondees+0.5], origin='lower')
     conf = round(np.sum(np.sum(data))/np.size(data)*100, 1)
     plt.title('Test 2, confusion = {} %'.format(conf))
+    plt.ion()
+    plt.show()
+    plt.ioff()
+    
+    data = pd.read_csv("test3.csv", header=None)
+    data = data.drop(data.index[0])
+    data = data.astype('int')
+    n_respondees = np.shape(data)[0]
+    n_rooms = np.shape(data)[1]
+    plt.figure()
+    plt.xticks(range(1,n_rooms+1))
+    plt.yticks(range(1,n_respondees+1))
+    plt.xlabel('Case number')
+    plt.ylabel('Respondee')
+    plt.imshow(data, cmap=cmap, extent=[0.5,n_rooms+0.5,0.5,n_respondees+0.5], origin='lower')
+    conf = round(np.sum(np.sum(data))/np.size(data)*100, 1)
+    plt.title('Test 3, confusion = {} %'.format(conf))
     plt.show()
 
 
