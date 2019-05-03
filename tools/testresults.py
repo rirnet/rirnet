@@ -21,9 +21,8 @@ def main():
     plt.imshow(data, cmap=cmap, extent=[0.5,n_rooms+0.5,0.5,n_respondees+0.5], origin='lower')
     conf = round(np.sum(np.sum(data))/np.size(data)*100, 1)
     plt.title('Test 1, confusion = {} %'.format(conf))
-    plt.ion()
-    plt.show()
-    plt.ioff()
+    plt.savefig('test1.png')
+    plt.savefig('test1.eps')
 
     data = pd.read_csv("test2.csv", header=None)
     data = data.drop(data.index[0])
@@ -38,10 +37,9 @@ def main():
     plt.imshow(data, cmap=cmap, extent=[0.5,n_rooms+0.5,0.5,n_respondees+0.5], origin='lower')
     conf = round(np.sum(np.sum(data))/np.size(data)*100, 1)
     plt.title('Test 2, confusion = {} %'.format(conf))
-    plt.ion()
-    plt.show()
-    plt.ioff()
-    
+    plt.savefig('test2.png')
+    plt.savefig('test2.eps')
+
     data = pd.read_csv("test3.csv", header=None)
     data = data.drop(data.index[0])
     data = data.astype('int')
@@ -55,8 +53,26 @@ def main():
     plt.imshow(data, cmap=cmap, extent=[0.5,n_rooms+0.5,0.5,n_respondees+0.5], origin='lower')
     conf = round(np.sum(np.sum(data))/np.size(data)*100, 1)
     plt.title('Test 3, confusion = {} %'.format(conf))
-    plt.show()
+    plt.savefig('test3.png')
+    plt.savefig('test3.eps')
 
+    data = pd.read_csv("test4.csv", header=None)
+    data = data.drop(data.index[0])
+    data = data.astype('int')
+    n_respondees = np.shape(data)[0]
+    n_rooms = np.shape(data)[1]
+    plt.figure()
+    plt.xticks(range(1,n_rooms+1))
+    plt.yticks(range(1,n_respondees+1))
+    plt.xlabel('Case number')
+    plt.ylabel('Respondee')
+    plt.imshow(data, extent=[0.5,n_rooms+0.5,0.5,n_respondees+0.5], origin='lower')
+    conf = round(np.sum(np.sum(data))/np.size(data)*100, 1)
+    plt.title('Test 4, confusion = {} %'.format(conf))
+    plt.savefig('test4.png')
+    plt.savefig('test4.eps')
+
+    plt.show()
 
 if __name__ == '__main__':
     fig_width_pt = 426.8                    # Get this from LaTeX using \showthe\columnwidth
